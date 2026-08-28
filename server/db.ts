@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, agentOutputs, auditEvents, intelligenceItems, integrations, instruments, riskControls, signals, simulations, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { ownerScoped } from "../shared/ownership";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -89,4 +90,78 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function getInstrumentsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(instruments).where(eq(instruments.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function getAuditEventsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(auditEvents).where(eq(auditEvents.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function getSignalsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(signals).where(eq(signals.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function getIntelligenceByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(intelligenceItems).where(eq(intelligenceItems.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function getAgentOutputsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(agentOutputs).where(eq(agentOutputs.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function getRiskControlsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(riskControls).where(eq(riskControls.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function getSimulationsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(simulations).where(eq(simulations.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function getIntegrationsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(integrations).where(eq(integrations.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function appendAuditEventToDb(input: {
+  ownerId: number;
+  eventType: string;
+  entityType: string;
+  entityId?: number;
+  payload?: unknown;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(auditEvents).values({
+    ownerId: input.ownerId,
+    eventType: input.eventType,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    payload: input.payload,
+  });
+  const rows = await db.select().from(auditEvents).where(eq(auditEvents.ownerId, input.ownerId));
+  return rows[rows.length - 1];
+}

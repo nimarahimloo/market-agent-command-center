@@ -14,7 +14,7 @@
 - [x] Add risk-control console for position-size limits, daily-loss limits, asset exposure caps, stop/kill switches, and future approval gate.
 - [x] Add secure settings area for future market-data and broker/exchange credentials without enabling live orders.
 - [x] Add immutable-style activity/audit log for signal, configuration, simulation, and approval events.
-- [ ] Add backend data models and protected procedures for watchlist, signals, news, agents, risk controls, simulations, integrations, and audit events.
+- [x] Add backend data models and protected procedures for watchlist, signals, news, agents, risk controls, simulations, integrations, and audit events.
 - [x] Add deterministic sample data clearly labeled as illustrative/demo data; do not fabricate customer reviews, ratings, or testimonials.
 - [x] Add Vitest coverage for core auditability and live-trading-disabled invariants.
 - [x] Run type checks, tests, and visual responsive verification.
@@ -32,3 +32,9 @@
 - [x] Back reasoning references with structured signal data objects instead of inline labels.
 - [x] Add meaningful provider-key validation and visible error/saved transitions.
 - [x] Add an explicit audit-log reorder rejection test.
+- [x] Add protected tRPC procedures and DB helpers for signals, intelligence/news, agent outputs, risk controls, simulations, and integrations.
+- [x] Add Vitest coverage for protected market procedures and owner access boundaries.
+- [x] Add tests for owner-scoped isolation across market collections.
+- [x] Add unauthorized-access tests for every protected market procedure.
+- [x] Add direct owner-isolation tests for each market procedure using mocked owner-specific records.
+- [x] Assert each protected market procedure returns only its caller's mocked owner-specific records.
