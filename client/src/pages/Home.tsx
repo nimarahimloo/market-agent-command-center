@@ -1,33 +1,117 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useLocation } from "wouter";
+import { useState } from "react";
+import { startLogin } from "@/const";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Activity, ArrowUpRight, Bot, BriefcaseBusiness, ChevronRight, CircleAlert, Clock3, Database, ExternalLink, Gauge, LockKeyhole, Newspaper, Pause, Play, Radar, ShieldCheck, SlidersHorizontal, Sparkles, TriangleAlert, Waypoints } from "lucide-react";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { MARKET_POLICY } from "@shared/marketPolicy";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
+const watchlist = [
+  { symbol: "BTC/USD", name: "Bitcoin", price: "$63,842", change: "+2.84%", status: "Open", confidence: 78, risk: "Moderate", color: "cyan" },
+  { symbol: "XAU/USD", name: "Gold spot", price: "$2,518.40", change: "+0.64%", status: "Open", confidence: 71, risk: "Low", color: "amber" },
+  { symbol: "CL1!", name: "WTI crude", price: "$77.18", change: "−1.20%", status: "Open", confidence: 63, risk: "Elevated", color: "orange" },
+  { symbol: "SI1!", name: "Silver", price: "$29.54", change: "+1.08%", status: "Open", confidence: 66, risk: "Moderate", color: "slate" },
+  { symbol: "NVDA", name: "NVIDIA", price: "$118.11", change: "+0.42%", status: "Pre-market", confidence: 59, risk: "Elevated", color: "violet" },
+];
+
+const agents = [
+  { name: "Technical analysis", icon: Activity, score: 81, view: "Constructive", note: "Momentum remains positive above the 20D trend." },
+  { name: "Macro & news", icon: Newspaper, score: 68, view: "Cautious", note: "Rates narrative is supportive, but headline sensitivity is high." },
+  { name: "Event impact", icon: Radar, score: 74, view: "Watch", note: "Upcoming macro releases widen the invalidation window." },
+  { name: "Cross-market", icon: Waypoints, score: 77, view: "Aligned", note: "Gold strength and softer dollar confirm partial risk-on." },
+  { name: "Risk review", icon: ShieldCheck, score: 92, view: "Approved for paper", note: "No live order path is enabled; simulated sizing is within limits." },
+];
+
+const signalReasoningRefs = [
+  { id: "technical.momentum.20d", label: "Technical momentum", contribution: "+12 confidence", source: "20-day trend model" },
+  { id: "macro.rates.path", label: "Macro rates path", contribution: "−8 confidence", source: "Rates / USD context" },
+  { id: "risk.size.cap", label: "Risk sizing cap", contribution: "Guardrail", source: "Paper risk policy" },
+];
+
+const performance = [
+  { day: "Mon", value: 0 }, { day: "Tue", value: 0.7 }, { day: "Wed", value: 0.4 }, { day: "Thu", value: 1.2 }, { day: "Fri", value: 1.7 }, { day: "Sat", value: 1.5 }, { day: "Sun", value: 2.1 },
+];
+
+function Metric({ label, value, helper, tone = "default" }: { label: string; value: string; helper: string; tone?: "default" | "good" | "warn" }) {
+  return <div className="metric-block"><p className="eyebrow">{label}</p><p className={`metric-value ${tone}`}>{value}</p><p className="metric-helper">{helper}</p></div>;
+}
+
 export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+  const { user, loading } = useAuth();
+  const [location] = useLocation();
+  if (loading) return <div className="loading-state"><Sparkles className="animate-pulse" /> Initializing private command center…</div>;
+  if (!user) return <div className="auth-gate"><div className="auth-mark"><LockKeyhole /></div><p className="eyebrow">PRIVATE RESEARCH ENVIRONMENT</p><h1>Market intelligence, with an audit trail.</h1><p>Sign in to access your watchlists, agent workspaces, paper-trading experiments, and risk controls.</p><Button onClick={() => startLogin()} size="lg">Sign in securely <ChevronRight /></Button><span className="auth-note"><ShieldCheck /> Live trading is disabled by default</span></div>;
 
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  if (location !== "/") return <ModulePage location={location} />;
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
-    </div>
-  );
+  return <div className="command-center">
+    <header className="topbar">
+      <div><div className="breadcrumb"><span>Private workspace</span><ChevronRight /><strong>Overview</strong><Badge variant="outline">DEMO DATA · READ ONLY</Badge></div><h1>Good morning, {user.name?.split(" ")[0] || "investor"}.</h1><p className="muted">A calm, evidence-first view across your markets.</p></div>
+      <div className="topbar-actions"><Badge className="safety-badge"><span className="status-dot" /> {MARKET_POLICY.liveTradingEnabled ? "LIVE ENABLED" : "PAPER MODE ONLY"}</Badge><Button variant="outline" size="sm"><SlidersHorizontal /> Preferences</Button></div>
+    </header>
+
+    <div className="safety-banner"><div className="safety-icon"><ShieldCheck /></div><div><strong>Execution safeguard active</strong><p>Signals can be researched and paper-tested. No exchange or broker order route is connected.</p></div><Button variant="ghost" size="sm">View controls <ChevronRight /></Button></div>
+
+    <section className="metrics-grid"><Metric label="Signal quality" value="74 / 100" helper="5 agents · 14 sources" tone="good" /><Metric label="Portfolio risk" value="Moderate" helper="2.4% simulated exposure" /><Metric label="Paper P&L · 7D" value="+2.1%" helper="Max drawdown −0.8%" tone="good" /><Metric label="Data freshness" value="2 min" helper="Last evidence sync" tone="good" /></section>
+
+    <Tabs defaultValue="overview" className="workspace-tabs"><TabsList><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="watchlist">Watchlist <span className="tab-count">5</span></TabsTrigger><TabsTrigger value="agents">Agent workspace</TabsTrigger><TabsTrigger value="sandbox">Strategy sandbox</TabsTrigger><TabsTrigger value="audit">Audit trail</TabsTrigger></TabsList>
+      <TabsContent value="overview" className="tab-panel">
+        <div className="content-grid">
+          <Card className="watchlist-card"><CardHeader><div><p className="eyebrow">UNIFIED WATCHLIST</p><CardTitle>Markets in focus</CardTitle></div><Button variant="ghost" size="sm">Open watchlist <ChevronRight /></Button></CardHeader><CardContent><div className="market-list">{watchlist.map((item) => <div className="market-row" key={item.symbol}><div className={`asset-icon ${item.color}`}>{item.symbol.slice(0, 1)}</div><div className="asset-name"><strong>{item.symbol}</strong><span>{item.name}</span></div><div className="asset-status"><span className="live-dot" />{item.status}</div><div className="asset-price"><strong>{item.price}</strong><span className={item.change.startsWith("+") ? "positive" : "negative"}>{item.change}</span></div><div className="confidence"><span>{item.confidence}%</span><Progress value={item.confidence} /></div><Badge variant={item.risk === "Low" ? "secondary" : item.risk === "Elevated" ? "destructive" : "outline"}>{item.risk}</Badge></div>)}</div></CardContent></Card>
+          <Card className="signal-card"><CardHeader><div><p className="eyebrow">TRACEABLE SYNTHESIS · 09:42 UTC</p><CardTitle>BTC/USD · constructive bias</CardTitle></div><Badge className="confidence-badge">78% confidence</Badge></CardHeader><CardContent><div className="signal-direction"><div className="direction-icon"><ArrowUpRight /></div><div><strong>Proposed direction: Long bias</strong><span>Research signal · paper execution only</span></div></div><p className="signal-thesis">Momentum, cross-market liquidity, and news tone align, while event risk argues for smaller sizing. The thesis is invalidated below <strong>$61,900</strong>.</p><div className="signal-stats"><div><span>Risk / reward</span><strong>1 : 2.4</strong></div><div><span>Invalidation</span><strong>$61,900</strong></div><div><span>Conflicts</span><strong>1 / 5 agents</strong></div></div><div className="signal-footer"><span><Database /> 8 evidence links</span><Button size="sm">Review thesis <ChevronRight /></Button></div></CardContent></Card>
+        </div>
+
+        <div className="content-grid lower-grid"><Card><CardHeader><div><p className="eyebrow">AGENT CONSENSUS</p><CardTitle>Five perspectives, one explainable view</CardTitle></div><Button variant="ghost" size="sm">Open workspace <ChevronRight /></Button></CardHeader><CardContent><div className="agent-list">{agents.map((agent) => <div className="agent-row" key={agent.name}><div className="agent-symbol"><agent.icon /></div><div className="agent-copy"><div><strong>{agent.name}</strong><span>{agent.view}</span></div><p>{agent.note}</p></div><div className="agent-score"><strong>{agent.score}</strong><Progress value={agent.score} /></div></div>)}</div></CardContent></Card>
+          <Card className="performance-card"><CardHeader><div><p className="eyebrow">PAPER STRATEGY · 7D</p><CardTitle>Research portfolio</CardTitle></div><Badge variant="secondary"><ArrowUpRight /> +2.1%</Badge></CardHeader><CardContent><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={performance}><defs><linearGradient id="perf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#53e0c1" stopOpacity={0.32} /><stop offset="100%" stopColor="#53e0c1" stopOpacity={0} /></linearGradient></defs><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#718096", fontSize: 11 }} /><YAxis hide domain={[0, 3]} /><Tooltip contentStyle={{ background: "#121b27", border: "1px solid #253449", borderRadius: 10 }} formatter={(value) => [`${value}%`, "P&L"]} /><Area type="monotone" dataKey="value" stroke="#53e0c1" strokeWidth={2.5} fill="url(#perf)" /></AreaChart></ResponsiveContainer></div><div className="mini-stats"><span><strong>+2.1%</strong> return</span><span><strong>−0.8%</strong> drawdown</span><span><strong>1.42</strong> Sharpe*</span></div><p className="disclaimer">*Illustrative paper results. Not a forecast or a promise of future performance.</p></CardContent></Card></div>
+
+        <div className="content-grid news-grid"><Card><CardHeader><div><p className="eyebrow">PUBLIC-WEB INTELLIGENCE</p><CardTitle>Evidence stream</CardTitle></div><Button variant="ghost" size="sm">View all <ChevronRight /></Button></CardHeader><CardContent><div className="news-list"><div className="news-item"><div className="news-source">Reuters<span>09:36 UTC</span></div><div><strong>Dollar eases as markets reassess the path of rates</strong><p>Entities: USD · Gold · BTC · Affected: FX, metals, crypto · Sentiment <span className="positive">+0.42</span></p></div><a href="https://www.reuters.com/markets/" target="_blank" rel="noreferrer" aria-label="Open Reuters markets source"><ExternalLink /></a></div><div className="news-item"><div className="news-source">CME Group<span>09:12 UTC</span></div><div><strong>Volatility remains concentrated around upcoming macro releases</strong><p>Entities: Rates · Oil · Equities · Affected: index futures · Sentiment <span className="neutral">0.03</span></p></div><a href="https://www.cmegroup.com/markets.html" target="_blank" rel="noreferrer" aria-label="Open CME markets source"><ExternalLink /></a></div><div className="news-item"><div className="news-source">SEC filing<span>08:58 UTC</span></div><div><strong>Large-cap technology earnings calendar updated</strong><p>Entities: NVDA · Nasdaq · Semiconductors · Affected: equities · Sentiment <span className="positive">+0.18</span></p></div><a href="https://www.sec.gov/edgar/searchedgar/companysearch" target="_blank" rel="noreferrer" aria-label="Open SEC filing source"><ExternalLink /></a></div></div></CardContent></Card><Card className="risk-card"><CardHeader><div><p className="eyebrow">RISK CONTROL CONSOLE</p><CardTitle>Guardrails</CardTitle></div><Button variant="ghost" size="sm">Manage <ChevronRight /></Button></CardHeader><CardContent><div className="guardrail"><div><ShieldCheck /><span>Daily loss limit</span></div><strong>0.0% / 2.0%</strong></div><div className="guardrail"><div><Gauge /><span>Max asset exposure</span></div><strong>2.4% / 10.0%</strong></div><div className="guardrail"><div><CircleAlert /><span>Kill switch</span></div><Badge variant="secondary"><span className="status-dot" /> Armed</Badge></div><div className="approval-lock"><LockKeyhole /><div><strong>Live order approval</strong><span>Requires explicit human approval</span></div><Pause /></div></CardContent></Card></div>
+      </TabsContent>
+      <TabsContent value="watchlist" className="tab-panel"><EmptyPanel icon={BriefcaseBusiness} title="Unified watchlist" text="Add instruments and organize market lenses from one private view." /></TabsContent>
+      <TabsContent value="agents" className="tab-panel"><EmptyPanel icon={Bot} title="Agent workspace" text="Open each specialist's evidence, assumptions, disagreements, and contribution to the final thesis." /></TabsContent>
+      <TabsContent value="sandbox" className="tab-panel"><EmptyPanel icon={Play} title="Strategy sandbox" text="Historical evaluation and paper trading are isolated from all live execution paths." /></TabsContent>
+      <TabsContent value="audit" className="tab-panel"><EmptyPanel icon={Clock3} title="Immutable activity log" text="Every signal, source, control change, simulation, and approval event is designed to be traceable." /></TabsContent>
+    </Tabs>
+    <footer className="footer-note"><TriangleAlert /> This is a research and simulation interface, not financial advice. {MARKET_POLICY.liveTradingEnabled ? "Live execution is connected." : "Automated live trading is intentionally unavailable in this version."}</footer>
+  </div>;
+}
+
+function EmptyPanel({ icon: Icon, title, text }: { icon: typeof Bot; title: string; text: string }) { return <div className="empty-panel"><div className="empty-icon"><Icon /></div><p className="eyebrow">COMING INTO FOCUS</p><h2>{title}</h2><p>{text}</p><Button variant="outline">Explore module <ChevronRight /></Button></div>; }
+
+function ModulePage({ location }: { location: string }) {
+  const [killSwitch, setKillSwitch] = useState(true);
+  const [approval, setApproval] = useState(false);
+  const [paperRun, setPaperRun] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [positionLimit, setPositionLimit] = useState(0.5);
+  const [lossLimit, setLossLimit] = useState(2);
+  const [exposureCap, setExposureCap] = useState(10);
+  const [providerKey, setProviderKey] = useState("");
+  const [providerSaved, setProviderSaved] = useState(false);
+  const [providerError, setProviderError] = useState("");
+  const titles: Record<string, [string, string]> = {
+    "/watchlist": ["Unified watchlist", "One private view across instruments and market states."],
+    "/agents": ["Agent workspace", "Separate lenses, explicit assumptions, and visible disagreement."],
+    "/signals": ["Signal review center", "Review the thesis before it can ever become an order."],
+    "/sandbox": ["Strategy sandbox", "Historical evaluation and paper execution only."],
+    "/risk": ["Risk-control console", "Guardrails are the product, not an afterthought."],
+    "/audit": ["Audit trail", "A chronological record of evidence, decisions, and control changes."],
+    "/settings": ["Integration settings", "Credentials remain disconnected until you explicitly configure a future provider."],
+  };
+  const [title, subtitle] = titles[location] || titles["/watchlist"];
+  return <div className="command-center module-page">
+    <header className="topbar"><div><div className="breadcrumb"><span>Private workspace</span><ChevronRight /><strong>{title}</strong><Badge variant="outline">DEMO DATA · READ ONLY</Badge></div><h1>{title}</h1><p className="muted">{subtitle}</p></div><Badge className="safety-badge"><span className="status-dot" /> PAPER MODE ONLY</Badge></header>
+    {location === "/watchlist" && <div className="module-grid"><Card className="wide-module"><CardHeader><CardTitle>Tracked instruments</CardTitle><Badge variant="secondary">5 assets</Badge></CardHeader><CardContent><div className="market-list">{watchlist.map(item => <div className="market-row" key={item.symbol}><div className={`asset-icon ${item.color}`}>{item.symbol.slice(0,1)}</div><div className="asset-name"><strong>{item.symbol}</strong><span>{item.name}</span></div><div className="asset-status"><span className="live-dot" />{item.status}</div><div className="asset-price"><strong>{item.price}</strong><span className="positive">{item.change}</span></div><div className="confidence"><span>Agent confidence {item.confidence}%</span><Progress value={item.confidence} /></div><Badge variant="outline">{item.risk}</Badge></div>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Market coverage</CardTitle></CardHeader><CardContent><p className="module-copy">Crypto, precious metals, energy, and equities are grouped under one evidence standard. Provider adapters are not connected in this demo.</p><div className="guardrail"><span>Instruments tracked</span><strong>5</strong></div><div className="guardrail"><span>Live data sources</span><strong>0</strong></div><div className="guardrail"><span>Read-only state</span><Badge variant="secondary">Active</Badge></div></CardContent></Card></div>}
+    {location === "/agents" && <div className="module-grid"><Card className="wide-module"><CardHeader><CardTitle>Specialist panels</CardTitle><Badge variant="outline">Traceable outputs</Badge></CardHeader><CardContent><div className="agent-list">{agents.map(agent => <div className="agent-row" key={agent.name}><div className="agent-symbol"><agent.icon /></div><div className="agent-copy"><div><strong>{agent.name}</strong><span>{agent.view}</span></div><p>{agent.note}</p><div className="evidence-tags"><Badge variant="outline">2 assumptions</Badge><Badge variant="outline">3 evidence refs</Badge><Badge variant="outline">1 conflict check</Badge></div></div><div className="agent-score"><strong>{agent.score}</strong><Progress value={agent.score} /></div></div>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Consensus protocol</CardTitle></CardHeader><CardContent><p className="module-copy">No single agent can publish a signal alone. A thesis requires independent views, source references, and an explicit risk review.</p><div className="approval-lock"><ShieldCheck /><div><strong>Risk review gate</strong><span>Required before paper simulation</span></div><Badge variant="secondary">Passed</Badge></div></CardContent></Card></div>}
+    {location === "/signals" && <div className="module-grid"><Card className="wide-module signal-card"><CardHeader><div><p className="eyebrow">SIGNAL SR-042 · PAPER ONLY</p><CardTitle>BTC/USD · constructive bias</CardTitle></div><Badge className="confidence-badge">78% confidence</Badge></CardHeader><CardContent><div className="signal-stats"><div><span>Proposed direction</span><strong>Long bias</strong></div><div><span>Invalidation</span><strong>$61,900</strong></div><div><span>Risk / reward</span><strong>1 : 2.4</strong></div></div><p className="signal-thesis">Thesis: momentum and cross-market liquidity align. Counterpoint: upcoming macro releases can widen volatility. Position sizing should remain below the configured cap.</p><div className="reasoning-refs"><span>Reasoning refs</span>{signalReasoningRefs.map(ref => <Badge key={ref.id} variant="outline" title={`${ref.source} · ${ref.contribution}`}>{ref.id}</Badge>)}</div><div className="evidence-list"><a href="https://www.reuters.com/markets/" target="_blank" rel="noreferrer"><Database /> Reuters · USD and rates context <ExternalLink /></a><a href="https://www.cmegroup.com/markets/interest-rates.html" target="_blank" rel="noreferrer"><Database /> CME · event-risk calendar <ExternalLink /></a><a href="https://www.sec.gov/edgar/searchedgar/companysearch" target="_blank" rel="noreferrer"><Database /> SEC · equity spillover check <ExternalLink /></a></div><div className="conflict-box"><CircleAlert /><div><strong>Conflicting opinion</strong><p>Macro/news agent is cautious on headline sensitivity; this reduces confidence by 8 points but does not invalidate the technical view.</p>{showConflict && <div className="conflict-detail"><span>Agent: Macro & news · score 68</span><span>Counter-evidence: event window risk</span><span>Resolution: reduce size, retain invalidation</span></div>}<Button variant="ghost" size="sm" onClick={() => setShowConflict(!showConflict)}>{showConflict ? "Hide reasoning" : "Inspect reasoning"}</Button></div></div></CardContent></Card><Card><CardHeader><CardTitle>Review decision</CardTitle></CardHeader><CardContent><p className="module-copy">A human review is required to move from research to paper simulation. Live order routing is not available.</p><Button onClick={() => setApproval(!approval)}>{approval ? "Paper approval recorded" : "Approve paper test"}</Button><p className="disclaimer">Approval is logged as a review action, not as a live trade instruction.</p></CardContent></Card></div>}
+    {location === "/sandbox" && <div className="module-grid"><Card className="wide-module"><CardHeader><CardTitle>Paper strategy run</CardTitle><Badge variant="secondary">No live orders</Badge></CardHeader><CardContent><div className="sandbox-form"><label>Universe<select defaultValue="multi"><option value="multi">Crypto + metals + energy + equities</option></select></label><label>Lookback<select defaultValue="180"><option value="180">180 sessions</option></select></label><label>Risk per trade<select defaultValue="0.5"><option value="0.5">0.5% capped</option></select></label></div><Button onClick={() => setPaperRun(!paperRun)}>{paperRun ? <><Pause /> Pause paper run</> : <><Play /> Run paper simulation</>}</Button>{paperRun && <div className="run-result"><div><span>Return</span><strong>+2.1%</strong></div><div><span>Max drawdown</span><strong>−0.8%</strong></div><div><span>Win rate</span><strong>58%</strong></div><div><span>Trades</span><strong>24</strong></div></div>}</CardContent></Card><Card><CardHeader><CardTitle>Method notes</CardTitle></CardHeader><CardContent><p className="module-copy">The visible result is illustrative demo output. A production adapter must persist OHLCV snapshots, fees, slippage, and point-in-time data before any performance claim is trusted.</p></CardContent></Card></div>}
+    {location === "/risk" && <div className="module-grid"><Card className="wide-module"><CardHeader><CardTitle>Guardrails and switches</CardTitle><Badge variant={killSwitch ? "secondary" : "destructive"}>{killSwitch ? "Armed" : "Disabled"}</Badge></CardHeader><CardContent><div className="risk-control"><div><strong>Position-size limit</strong><span>Maximum {positionLimit.toFixed(2)}% of paper equity per position</span></div><input aria-label="Position size limit" type="range" min="0.1" max="2" step="0.1" value={positionLimit} onChange={e => setPositionLimit(Number(e.target.value))} /></div><div className="risk-control"><div><strong>Daily loss limit</strong><span>Stop new paper positions at {lossLimit.toFixed(2)}%</span></div><input aria-label="Daily loss limit" type="range" min="0.5" max="5" step="0.5" value={lossLimit} onChange={e => setLossLimit(Number(e.target.value))} /></div><div className="risk-control"><div><strong>Asset exposure cap</strong><span>Maximum {exposureCap.toFixed(2)}% per asset</span></div><input aria-label="Asset exposure cap" type="range" min="2" max="25" step="1" value={exposureCap} onChange={e => setExposureCap(Number(e.target.value))} /></div><div className="approval-lock"><ShieldCheck /><div><strong>Kill switch</strong><span>Stops paper signal promotion immediately</span></div><Button variant={killSwitch ? "secondary" : "destructive"} onClick={() => setKillSwitch(!killSwitch)}>{killSwitch ? "Armed" : "Activate"}</Button></div></CardContent></Card><Card><CardHeader><CardTitle>Live approval gate</CardTitle></CardHeader><CardContent><div className="empty-icon"><LockKeyhole /></div><p className="module-copy">Live trading remains disabled in policy and has no credential route. Any future enablement must require explicit human approval and an immutable audit event.</p></CardContent></Card></div>}
+    {location === "/audit" && <div className="module-grid"><Card className="wide-module"><CardHeader><CardTitle>Recent activity</CardTitle><Badge variant="outline">Append-only view</Badge></CardHeader><CardContent><div className="audit-list">{[["09:42 UTC","SIGNAL_CREATED","BTC/USD thesis SR-042 created from 8 evidence refs"],["09:40 UTC","RISK_REVIEWED","Paper sizing approved below 0.50% cap"],["09:36 UTC","SOURCE_CAPTURED","Reuters market context linked to SR-042"],["09:18 UTC","SIMULATION_RUN","Multi-market paper run completed · +2.1% illustrative"],["08:55 UTC","POLICY_CHECK","Live execution route confirmed disabled"]].map(([time,event,detail]) => <div className="audit-row" key={time + event}><span className="audit-time">{time}</span><Badge variant="outline">{event}</Badge><span>{detail}</span><Database /></div>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Integrity</CardTitle></CardHeader><CardContent><div className="guardrail"><span>Events in view</span><strong>5</strong></div><div className="guardrail"><span>Source references</span><strong>8</strong></div><div className="guardrail"><span>Live orders</span><Badge variant="secondary">0</Badge></div></CardContent></Card></div>}
+    {location === "/settings" && <div className="module-grid"><Card className="wide-module"><CardHeader><CardTitle>Provider connections</CardTitle><Badge variant="secondary">Disconnected</Badge></CardHeader><CardContent><div className="settings-row"><div><strong>Market-data provider</strong><span>{providerSaved ? "Key saved in masked UI state; provider remains disconnected." : "API key is not configured. Future connection will be read-only first."}</span>{providerError && <em className="form-error">{providerError}</em>}</div><div className="secret-field"><input aria-label="Market data API key" type="password" placeholder="Paste key · masked" value={providerKey} onChange={e => { setProviderKey(e.target.value); setProviderError(""); setProviderSaved(false); }} /><Button variant="outline" onClick={() => { if (providerKey.trim().length < 12) { setProviderError("Use at least 12 characters; the provider stays disconnected until validated."); setProviderSaved(false); return; } setProviderError(""); setProviderSaved(true); }}>{providerSaved ? "Saved" : "Save securely"}</Button></div></div><div className="settings-row"><div><strong>Exchange / broker</strong><span>Order credentials are intentionally unavailable in this version.</span></div><Button variant="outline" disabled>Locked by policy</Button></div></CardContent></Card><Card><CardHeader><CardTitle>Execution policy</CardTitle></CardHeader><CardContent><div className="approval-lock"><LockKeyhole /><div><strong>Live trading disabled</strong><span>Central policy invariant</span></div><Badge variant="secondary">On</Badge></div></CardContent></Card></div>}
+    <footer className="footer-note"><TriangleAlert /> Illustrative interface only. Verify all data and assumptions before making financial decisions.</footer>
+  </div>;
 }

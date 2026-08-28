@@ -1,0 +1,34 @@
+# Project TODO
+
+- [x] Create a private dashboard shell with elegant dark visual language and responsive navigation.
+- [x] Add unified multi-market watchlist for crypto, oil, gold, silver, equities, and other supported instruments.
+- [x] Show instrument market status, price snapshot, agent confidence, and risk overview.
+- [x] Create specialized agent workspace for technical analysis, macro/news monitoring, event-impact assessment, cross-market correlation, and risk review.
+- [x] Combine agent outputs into a traceable signal thesis with source and reasoning links.
+- [x] Add news and public-web intelligence feed with source links, timestamps, entities, sentiment, and affected markets.
+- [x] Add signal review center with direction, rationale, confidence, invalidation, risk/reward assumptions, and conflicting opinions.
+- [x] Keep recommendations transparent and auditable rather than opaque.
+- [x] Add strategy sandbox for historical evaluation and paper-trading simulation.
+- [x] Add performance, drawdown, win-rate, and risk reporting for sandbox results.
+- [x] Keep live trading disabled by default and visibly communicate the safety state.
+- [x] Add risk-control console for position-size limits, daily-loss limits, asset exposure caps, stop/kill switches, and future approval gate.
+- [x] Add secure settings area for future market-data and broker/exchange credentials without enabling live orders.
+- [x] Add immutable-style activity/audit log for signal, configuration, simulation, and approval events.
+- [ ] Add backend data models and protected procedures for watchlist, signals, news, agents, risk controls, simulations, integrations, and audit events.
+- [x] Add deterministic sample data clearly labeled as illustrative/demo data; do not fabricate customer reviews, ratings, or testimonials.
+- [x] Add Vitest coverage for core auditability and live-trading-disabled invariants.
+- [x] Run type checks, tests, and visual responsive verification.
+- [x] Implement dedicated interactive modules for Agents, Signals, Sandbox, Risk, Audit, and Settings.
+- [x] Add clickable evidence/source links, reasoning references, and conflicting-opinion drill-down.
+- [x] Build a concrete paper-trade sandbox flow with win-rate, drawdown, and risk metrics.
+- [x] Add interactive risk controls, approval state, and visible kill-switch behavior.
+- [x] Add secure integration settings UI/state with live execution remaining disabled.
+- [x] Add a concrete audit event list and audit-log invariants.
+- [x] Clearly label all current market, news, and signal values as illustrative demo data.
+- [x] Implement real reasoning-reference objects and expandable conflicting-opinion drill-down in signal review.
+- [x] Bind risk sliders to visible state so limits update immediately in the console.
+- [x] Add masked integration credential fields with validation and disconnected-state handling.
+- [x] Implement and test append-only audit-log behavior and ordering invariants.
+- [x] Back reasoning references with structured signal data objects instead of inline labels.
+- [x] Add meaningful provider-key validation and visible error/saved transitions.
+- [x] Add an explicit audit-log reorder rejection test.
