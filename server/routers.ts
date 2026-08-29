@@ -3,7 +3,9 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { appendAuditEventToDb, getAgentOutputsByOwner, getAuditEventsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner } from "./db";
+import { appendAuditEventToDb, getAgentOutputsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, recordHistoricalDataRun } from "./db";
+import { fetchMassiveHistorical } from "./massiveData";
+import { ENV } from "./_core/env";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -28,6 +30,21 @@ export const appRouter = router({
     risk: protectedProcedure.query(({ ctx }) => getRiskControlsByOwner(ctx.user.id)),
     simulations: protectedProcedure.query(({ ctx }) => getSimulationsByOwner(ctx.user.id)),
     integrations: protectedProcedure.query(({ ctx }) => getIntegrationsByOwner(ctx.user.id)),
+    providerStatus: protectedProcedure.query(() => ({ provider: "Massive" as const, configured: Boolean(ENV.massiveApiKey), liveTradingEnabled: false as const })),
+    historicalBars: protectedProcedure.input(z.object({
+      symbol: z.string().min(1).max(40),
+      from: z.string(),
+      to: z.string(),
+      multiplier: z.number().int().min(1).max(60).optional(),
+      timespan: z.enum(["minute", "hour", "day", "week", "month"]).optional(),
+      adjusted: z.boolean().optional(),
+      limit: z.number().int().min(1).max(50_000).optional(),
+    })).query(async ({ ctx, input }) => {
+      const result = await fetchMassiveHistorical(input);
+      await recordHistoricalDataRun({ ownerId: ctx.user.id, provider: result.provider, symbol: result.symbol, fromDate: input.from, toDate: input.to, timespan: result.provenance.timespan, adjusted: result.provenance.adjusted, barsCount: result.bars.length, provenance: result.provenance });
+      return result;
+    }),
+    historicalRuns: protectedProcedure.query(({ ctx }) => getHistoricalDataRunsByOwner(ctx.user.id)),
     appendAudit: protectedProcedure.input(z.object({
       eventType: z.string().min(1).max(64),
       entityType: z.string().min(1).max(64),

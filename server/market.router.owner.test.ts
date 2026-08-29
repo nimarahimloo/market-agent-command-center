@@ -20,6 +20,7 @@ vi.mock("./db", () => ({
   getRiskControlsByOwner: scoped("risk"),
   getSimulationsByOwner: scoped("simulations"),
   getIntegrationsByOwner: scoped("integrations"),
+  getHistoricalDataRunsByOwner: scoped("historicalRuns"),
 }));
 
 import { appRouter } from "./routers";
@@ -33,7 +34,7 @@ describe("market procedure owner isolation", () => {
   it("passes each authenticated owner's id to every collection helper", async () => {
     const callerOne = appRouter.createCaller(contextFor(101));
     const callerTwo = appRouter.createCaller(contextFor(202));
-    const names = ["watchlist", "signals", "intelligence", "agents", "risk", "simulations", "integrations", "audit"] as const;
+    const names = ["watchlist", "signals", "intelligence", "agents", "risk", "simulations", "integrations", "audit", "historicalRuns"] as const;
     for (const name of names) {
       const one = await callerOne.market[name]();
       const two = await callerTwo.market[name]();

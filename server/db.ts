@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, agentOutputs, auditEvents, intelligenceItems, integrations, instruments, riskControls, signals, simulations, users } from "../drizzle/schema";
+import { InsertUser, agentOutputs, auditEvents, historicalDataRuns, intelligenceItems, integrations, instruments, riskControls, signals, simulations, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { ownerScoped } from "../shared/ownership";
 
@@ -143,6 +143,30 @@ export async function getIntegrationsByOwner(ownerId: number) {
   const db = await getDb();
   if (!db) return [];
   const rows = await db.select().from(integrations).where(eq(integrations.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function recordHistoricalDataRun(input: {
+  ownerId: number;
+  provider: string;
+  symbol: string;
+  fromDate: string;
+  toDate: string;
+  timespan: string;
+  adjusted: boolean;
+  barsCount: number;
+  provenance: unknown;
+}) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(historicalDataRuns).values(input);
+  return result;
+}
+
+export async function getHistoricalDataRunsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(historicalDataRuns).where(eq(historicalDataRuns.ownerId, ownerId));
   return ownerScoped(rows, ownerId);
 }
 

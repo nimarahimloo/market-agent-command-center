@@ -15,6 +15,13 @@
       "when": 1787961102281,
       "tag": "0001_opposite_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1788000889631,
+      "tag": "0002_magenta_next_avengers",
+      "breakpoints": true
     }
   ]
 }

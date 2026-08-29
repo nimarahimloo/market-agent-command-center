@@ -50,3 +50,34 @@
 - [x] Expand backtest tests with exact drawdown, profit factor, Sharpe-like, and lifecycle assertions.
 - [x] Capture responsive mobile verification for the sandbox module after the final UI changes.
 - [x] Add exact numeric Sharpe-like assertion for the multi-trade backtest fixture.
+- [x] Select and document a real historical market-data source and supported asset coverage.
+- [x] Add secure server-side historical-data adapter with normalized OHLCV responses.
+- [x] Persist data provenance, source timestamp, timezone, adjustment status, and quality warnings for each dataset.
+- [x] Add cache/rate-limit handling and explicit provider-disconnected states.
+- [x] Connect fetched historical bars to the backtest run flow without enabling live orders.
+- [x] Add tests for OHLCV normalization, gaps, duplicate timestamps, and stale/non-point-in-time warnings.
+- [x] Verify the historical-data and backtest UI on desktop and mobile, then save a checkpoint.
+- [x] Verify official Massive historical aggregates endpoint and authentication format from the supplied URL.
+- [x] Store the supplied Massive API key as a server-side project secret.
+- [x] Implement a server-side Massive OHLCV adapter with normalized bars and provenance metadata.
+- [x] Add a protected historical-data procedure with symbol, date range, interval, adjustment, and limit controls.
+- [x] Connect fetched real bars to the sandbox backtest flow while keeping demo fallback clearly labeled.
+- [x] Add data-quality checks for ordering, gaps, duplicate timestamps, and empty responses.
+- [x] Add API health, normalization, authorization, and backtest integration tests.
+- [x] Run type checks, tests, and visual verification, then save a checkpoint.
+- [x] Replace MASSIVE_API_KEY with the newly supplied credential and re-run the official historical-aggregate health check.
+- [x] Add expected-bar gap detection for requested timespans and date ranges.
+- [x] Add protected auth and owner-scope tests for historicalBars and historicalRuns.
+- [x] Add an integration test proving normalized Massive bars produce a backtest result.
+- [x] Save a new checkpoint after the Massive integration passes all tests.
+- [x] Persist first/last returned bar timestamps as provider dataset as-of metadata.
+- [x] Add in-memory cache and bounded retry/backoff for Massive historical requests.
+- [x] Add explicit provider unavailable/disconnected state in the sandbox UI.
+- [x] Add stale and non-point-in-time warnings with Vitest coverage.
+- [x] Test that historicalBars records provenance under the authenticated owner context.
+- [x] Save a new checkpoint after all Massive integration gaps are closed.
+- [x] Add a dedicated Massive provider-state panel for connected, loading, disconnected, entitlement, rate-limit, and outage states.
+- [x] Add distinct Massive disconnected and temporary outage provider states.
+- [x] Add provider-state mapping tests for connected, loading, disconnected, entitlement, rate-limit, and outage.
+- [x] Wire real server credential availability into the Massive provider-state UI instead of hardcoding configured=true.
+- [x] Ensure provider-state mapping test is discovered and confirm the test-file count increases.

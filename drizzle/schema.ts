@@ -109,6 +109,20 @@ export const integrations = mysqlTable("integrations", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const historicalDataRuns = mysqlTable("historicalDataRuns", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull(),
+  provider: varchar("provider", { length: 64 }).notNull(),
+  symbol: varchar("symbol", { length: 40 }).notNull(),
+  fromDate: varchar("fromDate", { length: 10 }).notNull(),
+  toDate: varchar("toDate", { length: 10 }).notNull(),
+  timespan: varchar("timespan", { length: 16 }).notNull(),
+  adjusted: boolean("adjusted").notNull(),
+  barsCount: int("barsCount").notNull(),
+  provenance: json("provenance").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export const auditEvents = mysqlTable("auditEvents", {
   id: int("id").autoincrement().primaryKey(),
   ownerId: int("ownerId").notNull(),

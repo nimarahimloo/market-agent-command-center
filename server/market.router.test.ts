@@ -23,7 +23,7 @@ describe("market protected procedures", () => {
 
   it("blocks unauthenticated access to every protected market procedure", async () => {
     const caller = appRouter.createCaller({ ...contextFor(42), user: null });
-    const calls = [caller.market.watchlist(), caller.market.signals(), caller.market.intelligence(), caller.market.agents(), caller.market.risk(), caller.market.simulations(), caller.market.integrations(), caller.market.audit()];
+    const calls = [caller.market.watchlist(), caller.market.signals(), caller.market.intelligence(), caller.market.agents(), caller.market.risk(), caller.market.simulations(), caller.market.integrations(), caller.market.audit(), caller.market.historicalRuns(), caller.market.historicalBars({ symbol: "AAPL", from: "2026-01-01", to: "2026-01-05" })];
     for (const call of calls) await expect(call).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
