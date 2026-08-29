@@ -101,11 +101,11 @@
 - [x] Save a new checkpoint after the Flat File gaps are closed.
 - [x] Add an early-warning radar view with event severity, lead-time estimate, confidence, affected markets, and source provenance.
 - [x] Expand monitored universe beyond crypto to equities, indices, FX, rates, oil, gold, silver, and other supported instruments.
-- [ ] Add source tiers, freshness checks, duplicate detection, and corroboration status for global news/public-web intelligence.
-- [ ] Add alert routing with configurable thresholds and paper-only signal notifications; do not promise front-running or guaranteed early signals.
-- [ ] Add multi-agent event impact synthesis with disagreement and uncertainty visible.
-- [ ] Add a legal, verifiable income-opportunity tracker separate from trading signals; never fabricate tasks, balances, earnings, or guaranteed returns.
-- [ ] Add a non-custodial wallet/integration placeholder that cannot receive or move funds until explicitly configured and confirmed.
+- [x] Add source tiers, freshness checks, duplicate detection, and corroboration status for global news/public-web intelligence.
+- [x] Add alert routing with configurable thresholds and paper-only signal notifications; do not promise front-running or guaranteed early signals.
+- [x] Add multi-agent event impact synthesis with disagreement and uncertainty visible.
+- [x] Add a legal, verifiable income-opportunity tracker separate from trading signals; never fabricate tasks, balances, earnings, or guaranteed returns.
+- [x] Add a non-custodial wallet/integration placeholder that cannot receive or move funds until explicitly configured and confirmed.
 - [x] Add tests for freshness, source corroboration, alert thresholds, ownership, and live-trading-disabled invariants.
 - [x] Run type checks, tests, responsive verification, and save a checkpoint.
 - [x] Add and verify the /radar route in the application router after the early-warning module was initially unreachable.
@@ -119,3 +119,16 @@
 - [x] Prevent the authenticated market collection test from making a live GDELT request; keep earlyWarnings covered with a mocked fetch test.
 - [x] Add dedicated protected-access and mocked-route tests for market.earlyWarnings.
 - [x] Save a checkpoint after the final radar tests and responsive verification.
+- [x] Derive cross-source corroboration from multiple feed records instead of hardcoding single-source.
+- [x] Add paper-only alert records/history with threshold evaluation and visible triggered state.
+- [x] Add structured per-event multi-agent impact scores, disagreement, and uncertainty.
+- [x] Turn opportunities into a user-managed tracker with verification metadata, status, notes, and audit-friendly history.
+- [x] Add tests for corroboration, alerts, synthesis, and opportunity state transitions.
+- [x] Persist paper-only alert records with owner scope, timestamps, retrieval, and audit linkage.
+- [x] Render synthesis for every radar event and expose lens-level disagreement/uncertainty per event.
+- [x] Add backend opportunity records/procedures with owner scope, status, notes, verification metadata, and history.
+- [x] Add Vitest coverage for opportunity transitions and any new alert-history persistence logic.
+- [x] Derive event-specific lens breakdowns for every radar item rather than reusing one static score vector.
+- [x] Add persistence-path tests for paper alert dedupe, owner scope, timestamps, and audit linkage.
+- [x] Show the complete event-specific lens breakdown inside each radar item, not only summary Δ/U badges.
+- [x] Cover paper-alert dedupe and audit-payload rules in unit tests that are reused by the DB helper.

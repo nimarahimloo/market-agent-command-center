@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { Activity, BarChart3, BookOpenCheck, BriefcaseBusiness, LayoutDashboard, LogOut, PanelLeft, Radar, ShieldCheck, SlidersHorizontal, Sparkles } from "lucide-react";
+import { Activity, BarChart3, BookOpenCheck, BriefcaseBusiness, Coins, LayoutDashboard, LogOut, PanelLeft, Radar, ShieldCheck, SlidersHorizontal, Sparkles, WalletCards } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -37,6 +37,8 @@ const menuItems = [
   { icon: ShieldCheck, label: "Risk controls", path: "/risk" },
   { icon: Activity, label: "Audit log", path: "/audit" },
   { icon: SlidersHorizontal, label: "Integrations", path: "/settings" },
+  { icon: Coins, label: "Verified opportunities", path: "/opportunities" },
+  { icon: WalletCards, label: "Wallet safety", path: "/wallet" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { appendAuditEventToDb, getAgentOutputsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getHistoricalDatasetsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, recordHistoricalDataRun, recordHistoricalDataset } from "./db";
+import { appendAuditEventToDb, getAgentOutputsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getHistoricalDatasetsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getOpportunityHistoryByOwner, getOpportunityRecordsByOwner, getPaperAlertsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, recordHistoricalDataRun, recordHistoricalDataset, recordPaperAlert, updateOpportunityRecord, upsertOpportunityRecord } from "./db";
 import { fetchMassiveHistorical } from "./massiveData";
 import { parseFlatFileChunks, type FlatFileMapping } from "../shared/flatFile";
 import { createHash } from "node:crypto";
@@ -31,6 +31,12 @@ export const appRouter = router({
     signals: protectedProcedure.query(({ ctx }) => getSignalsByOwner(ctx.user.id)),
     intelligence: protectedProcedure.query(({ ctx }) => getIntelligenceByOwner(ctx.user.id)),
     earlyWarnings: protectedProcedure.input(z.object({ query: z.string().min(3).max(240).optional() }).optional()).query(({ input }) => fetchEarlyWarnings(input?.query)),
+    paperAlerts: protectedProcedure.query(({ ctx }) => getPaperAlertsByOwner(ctx.user.id)),
+    recordPaperAlert: protectedProcedure.input(z.object({ warningId: z.string().max(160), headline: z.string().min(1).max(500), severity: z.enum(["low", "medium", "high"]), confidence: z.number().int().min(0).max(100), reason: z.string().min(1).max(500) })).mutation(({ ctx, input }) => recordPaperAlert({ ...input, ownerId: ctx.user.id })),
+    opportunities: protectedProcedure.query(({ ctx }) => getOpportunityRecordsByOwner(ctx.user.id)),
+    saveOpportunity: protectedProcedure.input(z.object({ externalKey: z.string().max(64), title: z.string().min(1).max(180), url: z.string().url(), source: z.string().min(1).max(180), verification: z.string().min(1).max(1000), status: z.enum(["new", "reviewing", "verified", "dismissed"]).optional(), note: z.string().max(2000).nullable().optional() })).mutation(({ ctx, input }) => upsertOpportunityRecord({ ...input, ownerId: ctx.user.id })),
+    updateOpportunity: protectedProcedure.input(z.object({ id: z.number().int().positive(), status: z.enum(["new", "reviewing", "verified", "dismissed"]).optional(), note: z.string().max(2000).nullable().optional() })).mutation(({ ctx, input }) => updateOpportunityRecord({ ...input, ownerId: ctx.user.id })),
+    opportunityHistory: protectedProcedure.input(z.object({ id: z.number().int().positive() })).query(({ ctx, input }) => getOpportunityHistoryByOwner(ctx.user.id, input.id)),
     agents: protectedProcedure.query(({ ctx }) => getAgentOutputsByOwner(ctx.user.id)),
     risk: protectedProcedure.query(({ ctx }) => getRiskControlsByOwner(ctx.user.id)),
     simulations: protectedProcedure.query(({ ctx }) => getSimulationsByOwner(ctx.user.id)),

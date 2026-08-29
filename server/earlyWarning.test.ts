@@ -12,6 +12,14 @@ describe("early-warning intelligence", () => {
     vi.unstubAllGlobals();
   });
 
+  it("deduplicates repeated URLs and classifies source tiers", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ articles: [{ url: "https://sec.gov/event", title: "Gold index disclosure", seendate: "2026-08-29T12:00:00Z", domain: "sec.gov", tone: 1 }, { url: "https://sec.gov/event", title: "Gold index disclosure", seendate: "2026-08-29T12:00:00Z", domain: "sec.gov", tone: 1 }] }), { status: 200 })));
+    const result = await fetchEarlyWarnings("dedupe source tier");
+    expect(result).toHaveLength(1);
+    expect(result[0]?.sourceTier).toBe("official");
+    vi.unstubAllGlobals();
+  });
+
   it("classifies freshness and respects alert thresholds", () => {
     expect(classifyFreshness("2026-08-29T12:00:00Z", "2026-08-29T12:10:00Z")).toBe("fresh");
     expect(classifyFreshness("2026-08-29T10:00:00Z", "2026-08-29T12:10:00Z")).toBe("stale");

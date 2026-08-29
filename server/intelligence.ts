@@ -1,3 +1,5 @@
+import { applyCorroboration } from "../shared/radarTools";
+
 export type EarlyWarningItem = {
   id: string;
   title: string;
@@ -51,6 +53,12 @@ function classifyMarkets(text: string) {
   return markets.length ? markets : ["Cross-market"];
 }
 
+function sourceTierFor(domain: string): EarlyWarningItem["sourceTier"] {
+  if (/gov|centralbank|federalreserve|sec\.gov|ecb\.europa/.test(domain.toLowerCase())) return "official";
+  if (/cnbc|reuters|bloomberg|ft\.com|wsj\.com/.test(domain.toLowerCase())) return "financial-media";
+  return "discovery";
+}
+
 function severityFor(tone: number, markets: string[]) {
   if (Math.abs(tone) >= 7 || markets.length >= 3) return "high" as const;
   if (Math.abs(tone) >= 3 || markets.length === 2) return "medium" as const;
@@ -71,7 +79,12 @@ export async function fetchEarlyWarnings(query = "(oil OR gold OR stocks OR fore
   if (!response.ok) throw new Error(`Global news discovery unavailable (${response.status})`);
   const body = await response.json() as { articles?: Array<{ url?: string; title?: string; seendate?: string; domain?: string; tone?: number }> };
   const retrievedAt = new Date().toISOString();
-  const items = (body.articles ?? []).filter(item => item.url && item.title).map((item, index) => {
+  const seenUrls = new Set<string>();
+  const items = (body.articles ?? []).filter(item => item.url && item.title).filter(item => {
+    if (seenUrls.has(item.url!)) return false;
+    seenUrls.add(item.url!);
+    return true;
+  }).map((item, index) => {
     const text = item.title ?? "";
     const markets = classifyMarkets(text);
     const tone = Number(item.tone ?? 0);
@@ -79,8 +92,9 @@ export async function fetchEarlyWarnings(query = "(oil OR gold OR stocks OR fore
     const leadTimeEstimateMinutes = Math.max(5, Math.round(30 - Math.abs(tone) * 1.5));
     const publishedAt = item.seendate ?? retrievedAt;
     const freshness = classifyFreshness(publishedAt, retrievedAt);
-    return { id: `gdelt-${index}-${Buffer.from(item.url!).toString("base64url").slice(0, 10)}`, title: text, url: item.url!, publishedAt, retrievedAt, source: item.domain ?? "GDELT discovery", sourceTier: "discovery" as const, severity: severityFor(tone, markets), markets, entities: markets, tone, corroboration: "single-source" as const, confidence, leadTimeEstimateMinutes, freshness };
+    return { id: `gdelt-${index}-${Buffer.from(item.url!).toString("base64url").slice(0, 10)}`, title: text, url: item.url!, publishedAt, retrievedAt, source: item.domain ?? "GDELT discovery", sourceTier: sourceTierFor(item.domain ?? ""), severity: severityFor(tone, markets), markets, entities: markets, tone, corroboration: "single-source" as const, confidence, leadTimeEstimateMinutes, freshness };
   });
-  cache.set(key, { expiresAt: Date.now() + 60_000, items });
-  return items;
+  const corroboratedItems = applyCorroboration(items);
+  cache.set(key, { expiresAt: Date.now() + 60_000, items: corroboratedItems });
+  return corroboratedItems;
 }

@@ -143,6 +143,42 @@ export const historicalDatasets = mysqlTable("historicalDatasets", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const paperAlerts = mysqlTable("paperAlerts", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull(),
+  warningId: varchar("warningId", { length: 160 }).notNull(),
+  headline: text("headline").notNull(),
+  severity: varchar("severity", { length: 16 }).notNull(),
+  confidence: int("confidence").notNull(),
+  reason: text("reason").notNull(),
+  triggeredAt: timestamp("triggeredAt").defaultNow().notNull(),
+  acknowledged: boolean("acknowledged").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const opportunityRecords = mysqlTable("opportunityRecords", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull(),
+  externalKey: varchar("externalKey", { length: 64 }).notNull(),
+  title: varchar("title", { length: 180 }).notNull(),
+  url: text("url").notNull(),
+  source: varchar("source", { length: 180 }).notNull(),
+  verification: text("verification").notNull(),
+  status: mysqlEnum("status", ["new", "reviewing", "verified", "dismissed"]).default("new").notNull(),
+  note: text("note"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const opportunityHistory = mysqlTable("opportunityHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull(),
+  opportunityId: int("opportunityId").notNull(),
+  action: varchar("action", { length: 64 }).notNull(),
+  payload: json("payload"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export const auditEvents = mysqlTable("auditEvents", {
   id: int("id").autoincrement().primaryKey(),
   ownerId: int("ownerId").notNull(),

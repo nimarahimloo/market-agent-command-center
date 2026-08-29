@@ -1,8 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, agentOutputs, auditEvents, historicalDataRuns, historicalDatasets, intelligenceItems, integrations, instruments, riskControls, signals, simulations, users } from "../drizzle/schema";
+import { InsertUser, agentOutputs, auditEvents, historicalDataRuns, historicalDatasets, intelligenceItems, integrations, instruments, opportunityHistory, opportunityRecords, paperAlerts, riskControls, signals, simulations, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { ownerScoped } from "../shared/ownership";
+import { paperAlertAuditPayload, shouldPersistPaperAlert } from "../shared/radarTools";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -202,4 +203,61 @@ export async function appendAuditEventToDb(input: {
   });
   const rows = await db.select().from(auditEvents).where(eq(auditEvents.ownerId, input.ownerId));
   return rows[rows.length - 1];
+}
+
+export async function getPaperAlertsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(paperAlerts).where(eq(paperAlerts.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function recordPaperAlert(input: typeof paperAlerts.$inferInsert) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const existing = await db.select().from(paperAlerts).where(and(eq(paperAlerts.ownerId, input.ownerId), eq(paperAlerts.warningId, input.warningId))).limit(1);
+  if (!shouldPersistPaperAlert(existing.map(alert => alert.warningId), input.warningId)) return existing[0];
+  await db.insert(paperAlerts).values(input);
+  await appendAuditEventToDb({ ownerId: input.ownerId, eventType: "paper_alert_triggered", entityType: "paper_alert", payload: paperAlertAuditPayload(input) });
+  const rows = await db.select().from(paperAlerts).where(and(eq(paperAlerts.ownerId, input.ownerId), eq(paperAlerts.warningId, input.warningId))).limit(1);
+  return rows[0];
+}
+
+export async function getOpportunityRecordsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(opportunityRecords).where(eq(opportunityRecords.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function upsertOpportunityRecord(input: { ownerId: number; externalKey: string; title: string; url: string; source: string; verification: string; status?: "new" | "reviewing" | "verified" | "dismissed"; note?: string | null }) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const found = await db.select().from(opportunityRecords).where(and(eq(opportunityRecords.ownerId, input.ownerId), eq(opportunityRecords.externalKey, input.externalKey))).limit(1);
+  if (!found[0]) {
+    await db.insert(opportunityRecords).values(input);
+    const created = (await db.select().from(opportunityRecords).where(and(eq(opportunityRecords.ownerId, input.ownerId), eq(opportunityRecords.externalKey, input.externalKey))).limit(1))[0];
+    if (created) await db.insert(opportunityHistory).values({ ownerId: input.ownerId, opportunityId: created.id, action: "created", payload: input });
+    return created;
+  }
+  return found[0];
+}
+
+export async function updateOpportunityRecord(input: { ownerId: number; id: number; status?: "new" | "reviewing" | "verified" | "dismissed"; note?: string | null }) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const current = (await db.select().from(opportunityRecords).where(and(eq(opportunityRecords.ownerId, input.ownerId), eq(opportunityRecords.id, input.id))).limit(1))[0];
+  if (!current) return undefined;
+  const patch = { ...(input.status ? { status: input.status } : {}), ...(input.note !== undefined ? { note: input.note } : {}) };
+  await db.update(opportunityRecords).set(patch).where(and(eq(opportunityRecords.ownerId, input.ownerId), eq(opportunityRecords.id, input.id)));
+  await db.insert(opportunityHistory).values({ ownerId: input.ownerId, opportunityId: input.id, action: "updated", payload: { before: { status: current.status, note: current.note }, after: patch } });
+  await appendAuditEventToDb({ ownerId: input.ownerId, eventType: "opportunity_updated", entityType: "opportunity", entityId: input.id, payload: patch });
+  return (await db.select().from(opportunityRecords).where(and(eq(opportunityRecords.ownerId, input.ownerId), eq(opportunityRecords.id, input.id))).limit(1))[0];
+}
+
+export async function getOpportunityHistoryByOwner(ownerId: number, opportunityId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(opportunityHistory).where(and(eq(opportunityHistory.ownerId, ownerId), eq(opportunityHistory.opportunityId, opportunityId)));
+  return ownerScoped(rows, ownerId);
 }

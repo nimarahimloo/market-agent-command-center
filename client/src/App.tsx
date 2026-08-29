@@ -18,6 +18,8 @@ function Router() {
     <Route path="/risk" component={Home} />
     <Route path="/audit" component={Home} />
     <Route path="/settings" component={Home} />
+    <Route path="/opportunities" component={Home} />
+    <Route path="/wallet" component={Home} />
     <Route path="/404" component={NotFound} />
     <Route component={NotFound} />
   </Switch>;
