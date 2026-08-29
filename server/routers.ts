@@ -9,6 +9,7 @@ import { parseFlatFileChunks, type FlatFileMapping } from "../shared/flatFile";
 import { createHash } from "node:crypto";
 import { storagePut } from "./storage";
 import { ENV } from "./_core/env";
+import { fetchEarlyWarnings } from "./intelligence";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -29,6 +30,7 @@ export const appRouter = router({
     audit: protectedProcedure.query(({ ctx }) => getAuditEventsByOwner(ctx.user.id)),
     signals: protectedProcedure.query(({ ctx }) => getSignalsByOwner(ctx.user.id)),
     intelligence: protectedProcedure.query(({ ctx }) => getIntelligenceByOwner(ctx.user.id)),
+    earlyWarnings: protectedProcedure.input(z.object({ query: z.string().min(3).max(240).optional() }).optional()).query(({ input }) => fetchEarlyWarnings(input?.query)),
     agents: protectedProcedure.query(({ ctx }) => getAgentOutputsByOwner(ctx.user.id)),
     risk: protectedProcedure.query(({ ctx }) => getRiskControlsByOwner(ctx.user.id)),
     simulations: protectedProcedure.query(({ ctx }) => getSimulationsByOwner(ctx.user.id)),

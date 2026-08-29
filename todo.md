@@ -99,3 +99,23 @@
 - [x] Add column-mapping controls and a previously-uploaded dataset selector.
 - [x] Add Vitest coverage for the upload size limit and chunked backtest behavior.
 - [x] Save a new checkpoint after the Flat File gaps are closed.
+- [x] Add an early-warning radar view with event severity, lead-time estimate, confidence, affected markets, and source provenance.
+- [x] Expand monitored universe beyond crypto to equities, indices, FX, rates, oil, gold, silver, and other supported instruments.
+- [ ] Add source tiers, freshness checks, duplicate detection, and corroboration status for global news/public-web intelligence.
+- [ ] Add alert routing with configurable thresholds and paper-only signal notifications; do not promise front-running or guaranteed early signals.
+- [ ] Add multi-agent event impact synthesis with disagreement and uncertainty visible.
+- [ ] Add a legal, verifiable income-opportunity tracker separate from trading signals; never fabricate tasks, balances, earnings, or guaranteed returns.
+- [ ] Add a non-custodial wallet/integration placeholder that cannot receive or move funds until explicitly configured and confirmed.
+- [x] Add tests for freshness, source corroboration, alert thresholds, ownership, and live-trading-disabled invariants.
+- [x] Run type checks, tests, responsive verification, and save a checkpoint.
+- [x] Add and verify the /radar route in the application router after the early-warning module was initially unreachable.
+- [x] Add server-side confidence scoring and lead-time estimates to each early-warning item.
+- [x] Expand classification labels to explicitly separate gold, silver, indices, and rates.
+- [x] Add early-warning tests for freshness, confidence, lead-time, threshold behavior, and owner-scoped access.
+- [x] Save a new checkpoint after radar gap fixes pass tests and responsive verification.
+- [x] Add explicit freshness classification and alert-threshold behavior to the radar helper.
+- [x] Add protected/owner-scope tests for market.earlyWarnings.
+- [x] Save a checkpoint after the final radar tests and responsive verification.
+- [x] Prevent the authenticated market collection test from making a live GDELT request; keep earlyWarnings covered with a mocked fetch test.
+- [x] Add dedicated protected-access and mocked-route tests for market.earlyWarnings.
+- [x] Save a checkpoint after the final radar tests and responsive verification.
