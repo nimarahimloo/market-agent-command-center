@@ -13,6 +13,7 @@ export type BacktestConfig = {
   slippageBps: number;
   positionFraction: number;
   allowShort: boolean;
+  dataProvenance?: { source: string; datasetName?: string; sha256?: string; firstTimestamp?: number; lastTimestamp?: number; warnings?: string[] };
 };
 
 export type BacktestTrade = {
@@ -39,6 +40,7 @@ export type BacktestResult = {
     startTime: number;
     endTime: number;
     barCount: number;
+    dataProvenance?: BacktestConfig["dataProvenance"];
   };
   equityCurve: Array<{ timestamp: number; equity: number }>;
   trades: BacktestTrade[];
@@ -66,6 +68,20 @@ function std(values: number[]) {
   if (values.length < 2) return 0;
   const average = mean(values);
   return Math.sqrt(mean(values.map(value => (value - average) ** 2)));
+}
+
+export type ChunkedBacktestOptions = { signal?: AbortSignal; onProgress?: (processedBars: number) => void };
+
+export async function runBacktestChunked(chunks: AsyncIterable<{ bars: readonly HistoricalBar[]; signals: readonly number[] }>, config: BacktestConfig, options: ChunkedBacktestOptions = {}): Promise<BacktestResult> {
+  const bars: HistoricalBar[] = []; const signals: number[] = [];
+  for await (const chunk of chunks) {
+    if (options.signal?.aborted) throw new Error("Backtest cancelled");
+    if (chunk.bars.length !== chunk.signals.length) throw new Error("Chunk bars and signals must have the same length");
+    bars.push(...chunk.bars); signals.push(...chunk.signals); options.onProgress?.(bars.length);
+    await Promise.resolve();
+  }
+  if (options.signal?.aborted) throw new Error("Backtest cancelled");
+  return runBacktest(bars, signals, config);
 }
 
 export function runBacktest(bars: readonly HistoricalBar[], signals: readonly number[], config: BacktestConfig): BacktestResult {
@@ -173,6 +189,7 @@ export function runBacktest(bars: readonly HistoricalBar[], signals: readonly nu
       startTime: bars[0].timestamp,
       endTime: bars[bars.length - 1].timestamp,
       barCount: bars.length,
+      dataProvenance: config.dataProvenance,
     },
     equityCurve,
     trades,

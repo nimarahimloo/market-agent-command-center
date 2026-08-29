@@ -7,6 +7,10 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { parseFlatFileChunks, type FlatFileMapping } from "../../shared/flatFile";
+import { createHash } from "node:crypto";
+import { storagePut } from "../storage";
+import { recordHistoricalDataset } from "../db";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -36,6 +40,24 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  app.post("/api/flat-files/upload", express.raw({ type: ["text/csv", "application/x-ndjson"], limit: "25mb" }), async (req, res) => {
+    try {
+      const ctx = await createContext({ req, res, info: {} } as Parameters<typeof createContext>[0]);
+      if (!ctx.user) return res.status(401).json({ message: "Authentication required" });
+      const format = req.headers["x-flat-file-format"] === "ndjson" ? "ndjson" : "csv";
+      const symbol = String(req.headers["x-flat-file-symbol"] ?? "UNKNOWN").slice(0, 40);
+      const source = String(req.headers["x-flat-file-source"] ?? "user-upload").slice(0, 160);
+      const interval = String(req.headers["x-flat-file-interval"] ?? "day") as "minute" | "hour" | "day" | "week" | "month";
+      const name = String(req.headers["x-flat-file-name"] ?? "dataset").slice(0, 160);
+      const content = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body ?? "");
+      const sha256 = createHash("sha256").update(content).digest("hex");
+      const chunks = async function* () { for (let offset = 0; offset < content.length; offset += 256 * 1024) yield content.subarray(offset, Math.min(offset + 256 * 1024, content.length)); };
+      const parsed = await parseFlatFileChunks(chunks(), format, {} as Partial<FlatFileMapping>, interval);
+      const stored = await storagePut(`${ctx.user.id}-datasets/${name}`, content, format === "csv" ? "text/csv" : "application/x-ndjson");
+      await recordHistoricalDataset({ ownerId: ctx.user.id, name, format, source, storageKey: stored.key, sha256, byteSize: content.length, rowCount: parsed.bars.length, symbol, timezone: "UTC", firstTimestamp: parsed.firstTimestamp ? new Date(parsed.firstTimestamp) : null, lastTimestamp: parsed.lastTimestamp ? new Date(parsed.lastTimestamp) : null, status: parsed.errors.length ? "rejected" : "validated", warnings: parsed.warnings, errors: parsed.errors });
+      return res.json({ ...parsed, storageKey: stored.key, sha256, byteSize: content.length, status: parsed.errors.length ? "rejected" : "validated" });
+    } catch (error) { return res.status(400).json({ message: error instanceof Error ? error.message : "Flat File upload failed" }); }
+  });
   // tRPC API
   app.use(
     "/api/trpc",

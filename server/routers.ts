@@ -3,8 +3,11 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { appendAuditEventToDb, getAgentOutputsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, recordHistoricalDataRun } from "./db";
+import { appendAuditEventToDb, getAgentOutputsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getHistoricalDatasetsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, recordHistoricalDataRun, recordHistoricalDataset } from "./db";
 import { fetchMassiveHistorical } from "./massiveData";
+import { parseFlatFileChunks, type FlatFileMapping } from "../shared/flatFile";
+import { createHash } from "node:crypto";
+import { storagePut } from "./storage";
 import { ENV } from "./_core/env";
 
 export const appRouter = router({
@@ -45,6 +48,19 @@ export const appRouter = router({
       return result;
     }),
     historicalRuns: protectedProcedure.query(({ ctx }) => getHistoricalDataRunsByOwner(ctx.user.id)),
+    flatFileDatasets: protectedProcedure.query(({ ctx }) => getHistoricalDatasetsByOwner(ctx.user.id)),
+    uploadFlatFile: protectedProcedure.input(z.object({
+      name: z.string().min(1).max(160), format: z.enum(["csv", "ndjson"]), source: z.string().min(1).max(160).default("user-upload"), symbol: z.string().min(1).max(40), timezone: z.string().min(1).max(64).default("UTC"), interval: z.enum(["minute", "hour", "day", "week", "month"]).default("day"), contentBase64: z.string().min(1).max(35_000_000), mapping: z.record(z.string(), z.string()).optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const content = Buffer.from(input.contentBase64, "base64");
+      if (content.length > 25 * 1024 * 1024) throw new Error("Flat File exceeds the 25 MB MVP upload limit; split the dataset into time partitions.");
+      const sha256 = createHash("sha256").update(content).digest("hex");
+      async function* chunks() { for (let offset = 0; offset < content.length; offset += 256 * 1024) yield content.subarray(offset, Math.min(offset + 256 * 1024, content.length)); }
+      const parsed = await parseFlatFileChunks(chunks(), input.format, input.mapping as Partial<FlatFileMapping> | undefined, input.interval);
+      const stored = await storagePut(`${ctx.user.id}-datasets/${input.name}`, content, input.format === "csv" ? "text/csv" : "application/x-ndjson");
+      await recordHistoricalDataset({ ownerId: ctx.user.id, name: input.name, format: input.format, source: input.source, storageKey: stored.key, sha256, byteSize: content.length, rowCount: parsed.bars.length, symbol: input.symbol, timezone: input.timezone, firstTimestamp: parsed.firstTimestamp ? new Date(parsed.firstTimestamp) : null, lastTimestamp: parsed.lastTimestamp ? new Date(parsed.lastTimestamp) : null, status: parsed.errors.length ? "rejected" : "validated", warnings: parsed.warnings, errors: parsed.errors });
+      return { ...parsed, storageKey: stored.key, sha256, byteSize: content.length, status: parsed.errors.length ? "rejected" as const : "validated" as const };
+    }),
     appendAudit: protectedProcedure.input(z.object({
       eventType: z.string().min(1).max(64),
       entityType: z.string().min(1).max(64),

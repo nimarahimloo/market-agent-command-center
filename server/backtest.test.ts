@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runBacktest, type HistoricalBar } from "../shared/backtest";
+import { runBacktest, runBacktestChunked, type HistoricalBar } from "../shared/backtest";
 
 const bars: HistoricalBar[] = [
   { timestamp: 1, open: 100, high: 101, low: 99, close: 100 },
@@ -40,6 +40,16 @@ describe("backtest engine", () => {
     expect(result.metrics.maxDrawdownPct).toBeCloseTo(5.5556, 3);
     expect(result.metrics.profitFactor).toBeCloseTo(0.8571, 3);
     expect(result.metrics.sharpeLike).toBeCloseTo(-0.07438, 4);
+  });
+
+  it("processes chunks with progress and supports cancellation", async () => {
+    async function* chunks() { yield { bars: bars.slice(0, 2), signals: [1, 0] }; yield { bars: bars.slice(2), signals: [0] }; }
+    const progress: number[] = [];
+    const result = await runBacktestChunked(chunks(), { initialCash: 1000, commissionBps: 0, slippageBps: 0, positionFraction: 0.5, allowShort: false }, { onProgress: count => progress.push(count) });
+    expect(result.assumptions.barCount).toBe(3);
+    expect(progress).toEqual([2, 3]);
+    const controller = new AbortController(); controller.abort();
+    await expect(runBacktestChunked(chunks(), { initialCash: 1000, commissionBps: 0, slippageBps: 0, positionFraction: 0.5, allowShort: false }, { signal: controller.signal })).rejects.toThrow("cancelled");
   });
 
   it("returns warnings for a short or trade-free sample", () => {

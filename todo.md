@@ -81,3 +81,21 @@
 - [x] Add provider-state mapping tests for connected, loading, disconnected, entitlement, rate-limit, and outage.
 - [x] Wire real server credential availability into the Massive provider-state UI instead of hardcoding configured=true.
 - [x] Ensure provider-state mapping test is discovered and confirm the test-file count increases.
+- [x] Define supported Flat File formats, schema, encoding, size limits, and column mapping.
+- [x] Add secure Flat File upload to S3-backed storage with owner-scoped metadata.
+- [x] Add historical dataset metadata for file hash, byte size, row count, time range, symbol, timezone, and source.
+- [x] Implement streaming CSV/NDJSON parsing without loading the complete file into memory.
+- [x] Add chunked/streaming backtest execution with progress and cancellation-safe state.
+- [x] Add validation for malformed rows, duplicates, ordering, gaps, missing OHLCV fields, and unsupported intervals.
+- [x] Connect uploaded datasets to the existing cost-aware backtest engine and preserve assumptions/provenance.
+- [x] Add UI for upload, mapping, validation summary, dataset selection, and long-run results.
+- [x] Add Vitest coverage for parsing, validation, ownership, file limits, and chunked backtest behavior.
+- [x] Run type checks, tests, responsive verification, and save a checkpoint.
+- [x] Add explicit source/provider field to historicalDatasets and persist it for Flat File uploads.
+- [x] Replace base64 whole-file upload with a streaming-safe upload/parse contract or clearly bounded multipart path.
+- [x] Implement chunked backtest execution with progress and cancellation-safe state.
+- [x] Detect and reject unsupported Flat File intervals with clear validation errors.
+- [x] Persist dataset provenance into the backtest result and display the linked dataset record.
+- [x] Add column-mapping controls and a previously-uploaded dataset selector.
+- [x] Add Vitest coverage for the upload size limit and chunked backtest behavior.
+- [x] Save a new checkpoint after the Flat File gaps are closed.

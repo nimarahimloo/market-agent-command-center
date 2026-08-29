@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, agentOutputs, auditEvents, historicalDataRuns, intelligenceItems, integrations, instruments, riskControls, signals, simulations, users } from "../drizzle/schema";
+import { InsertUser, agentOutputs, auditEvents, historicalDataRuns, historicalDatasets, intelligenceItems, integrations, instruments, riskControls, signals, simulations, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { ownerScoped } from "../shared/ownership";
 
@@ -161,6 +161,20 @@ export async function recordHistoricalDataRun(input: {
   if (!db) return undefined;
   const result = await db.insert(historicalDataRuns).values(input);
   return result;
+}
+
+export async function recordHistoricalDataset(input: typeof historicalDatasets.$inferInsert) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(historicalDatasets).values(input);
+  return result;
+}
+
+export async function getHistoricalDatasetsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(historicalDatasets).where(eq(historicalDatasets.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
 }
 
 export async function getHistoricalDataRunsByOwner(ownerId: number) {

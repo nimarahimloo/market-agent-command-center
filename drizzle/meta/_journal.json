@@ -22,6 +22,20 @@
       "when": 1788000889631,
       "tag": "0002_magenta_next_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1788004232738,
+      "tag": "0003_unknown_devos",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1788004614406,
+      "tag": "0004_worried_husk",
+      "breakpoints": true
     }
   ]
 }

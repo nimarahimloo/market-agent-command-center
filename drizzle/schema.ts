@@ -123,6 +123,26 @@ export const historicalDataRuns = mysqlTable("historicalDataRuns", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const historicalDatasets = mysqlTable("historicalDatasets", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull(),
+  name: varchar("name", { length: 160 }).notNull(),
+  format: mysqlEnum("format", ["csv", "ndjson"]).notNull(),
+  source: varchar("source", { length: 160 }).notNull().default("user-upload"),
+  storageKey: text("storageKey").notNull(),
+  sha256: varchar("sha256", { length: 64 }).notNull(),
+  byteSize: int("byteSize").notNull(),
+  rowCount: int("rowCount").notNull(),
+  symbol: varchar("symbol", { length: 40 }).notNull(),
+  timezone: varchar("timezone", { length: 64 }).notNull(),
+  firstTimestamp: timestamp("firstTimestamp"),
+  lastTimestamp: timestamp("lastTimestamp"),
+  status: mysqlEnum("status", ["uploaded", "validated", "rejected"]).default("uploaded").notNull(),
+  warnings: json("warnings"),
+  errors: json("errors"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export const auditEvents = mysqlTable("auditEvents", {
   id: int("id").autoincrement().primaryKey(),
   ownerId: int("ownerId").notNull(),
