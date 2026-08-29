@@ -38,3 +38,15 @@
 - [x] Add unauthorized-access tests for every protected market procedure.
 - [x] Add direct owner-isolation tests for each market procedure using mocked owner-specific records.
 - [x] Assert each protected market procedure returns only its caller's mocked owner-specific records.
+- [x] Add advanced backtest engine with deterministic historical-bar processing.
+- [x] Model commissions, slippage, position sizing, cash, equity curve, and trade ledger.
+- [x] Add backtest metrics including net return, gross return, costs, max drawdown, win rate, profit factor, Sharpe-like ratio, and trade count.
+- [x] Add auditable assumptions and data-quality warnings for backtest runs.
+- [x] Replace the sandbox placeholder with interactive backtest controls and result reporting.
+- [x] Add Vitest coverage for fee/slippage math, trade lifecycle, and metric calculations.
+- [x] Run type checks, tests, and responsive visual verification for the backtest module.
+- [x] Bind sandbox controls to state and pass selected values into the engine.
+- [x] Store a per-run assumptions snapshot in BacktestResult and show it in the UI.
+- [x] Expand backtest tests with exact drawdown, profit factor, Sharpe-like, and lifecycle assertions.
+- [x] Capture responsive mobile verification for the sandbox module after the final UI changes.
+- [x] Add exact numeric Sharpe-like assertion for the multi-trade backtest fixture.
