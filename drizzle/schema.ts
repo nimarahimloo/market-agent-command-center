@@ -35,9 +35,37 @@ export const instruments = mysqlTable("instruments", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const agentRuns = mysqlTable("agentRuns", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull(),
+  mode: mysqlEnum("mode", ["single", "batch"]).notNull(),
+  status: mysqlEnum("status", ["queued", "running", "completed", "partial", "failed", "cancelled"]).default("queued").notNull(),
+  requestedCount: int("requestedCount").notNull(),
+  completedCount: int("completedCount").default(0).notNull(),
+  failedCount: int("failedCount").default(0).notNull(),
+  maxCalls: int("maxCalls").notNull(),
+  budgetUnits: int("budgetUnits").notNull(),
+  startedAt: timestamp("startedAt"),
+  finishedAt: timestamp("finishedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const agentRunEvents = mysqlTable("agentRunEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull(),
+  runId: int("runId").notNull(),
+  eventId: varchar("eventId", { length: 160 }).notNull(),
+  status: mysqlEnum("status", ["queued", "running", "completed", "failed", "cancelled"]).default("queued").notNull(),
+  consensus: json("consensus"),
+  error: text("error"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export const agentOutputs = mysqlTable("agentOutputs", {
   id: int("id").autoincrement().primaryKey(),
   ownerId: int("ownerId").notNull(),
+  runId: int("runId"),
+  eventId: varchar("eventId", { length: 160 }),
   role: varchar("role", { length: 64 }).notNull(),
   instrumentId: int("instrumentId"),
   stance: varchar("stance", { length: 32 }).notNull(),

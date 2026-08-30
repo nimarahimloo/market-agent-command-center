@@ -3,13 +3,31 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { appendAuditEventToDb, getAgentOutputsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getHistoricalDatasetsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getOpportunityHistoryByOwner, getOpportunityRecordsByOwner, getPaperAlertsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, recordHistoricalDataRun, recordHistoricalDataset, recordPaperAlert, updateOpportunityRecord, upsertOpportunityRecord } from "./db";
+import { appendAuditEventToDb, createAgentRun, createAgentRunEvent, getAgentOutputsByOwner, getAgentRunEventsByOwner, getAgentRunsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getHistoricalDatasetsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getOpportunityHistoryByOwner, getOpportunityRecordsByOwner, getPaperAlertsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, recordAgentOutput, recordHistoricalDataRun, recordHistoricalDataset, recordPaperAlert, updateAgentRun, updateOpportunityRecord, upsertOpportunityRecord } from "./db";
 import { fetchMassiveHistorical } from "./massiveData";
+import { runAgentArmy, runAgentArmyBatch } from "./agentOrchestrator";
 import { parseFlatFileChunks, type FlatFileMapping } from "../shared/flatFile";
 import { createHash } from "node:crypto";
 import { storagePut } from "./storage";
 import { ENV } from "./_core/env";
-import { fetchEarlyWarnings } from "./intelligence";
+import { fetchEarlyWarnings, type EarlyWarningItem } from "./intelligence";
+import { listLLMModels } from "./_core/llm";
+import { buildAgentBatchCancelledAudit, buildCancelledRunPatch } from "../shared/agentRun";
+
+const radarEventInput = z.object({ id: z.string().max(160), title: z.string().min(1).max(500), url: z.string().url(), publishedAt: z.string(), retrievedAt: z.string(), source: z.string(), sourceTier: z.enum(["discovery", "financial-media", "official"]), severity: z.enum(["low", "medium", "high"]), markets: z.array(z.string()).max(12), entities: z.array(z.string()).max(24), tone: z.number(), corroboration: z.enum(["single-source", "cross-source"]), confidence: z.number().int().min(0).max(100), leadTimeEstimateMinutes: z.number().int().min(1), freshness: z.enum(["fresh", "aging", "stale"]) });
+const MAX_AGENT_BATCH_EVENTS = 5;
+const activeBatchCancels = new Map<number, { cancelled: boolean }>();
+const agentRunOptionsInput = z.object({ modelId: z.string().min(1).max(120).optional(), agentBudget: z.number().int().min(3).max(6).optional(), retryCount: z.number().int().min(0).max(2).optional(), timeoutMs: z.number().int().min(5_000).max(45_000).optional() }).optional();
+
+async function persistArmyResults(ownerId: number, runId: number | undefined, results: Array<{ event: EarlyWarningItem; result?: Awaited<ReturnType<typeof runAgentArmy>>; error?: string }>) {
+  for (const entry of results) {
+    const runEventId = runId ? await createAgentRunEvent({ ownerId, runId, eventId: entry.event.id, status: entry.result ? "completed" : "failed", consensus: entry.result?.consensus, error: entry.error }) : undefined;
+    if (entry.result) {
+      await Promise.all(entry.result.analyses.filter(agent => agent.status === "completed").map(agent => recordAgentOutput({ ownerId, runId, eventId: entry.result!.eventId, role: agent.role, stance: agent.stance, confidence: agent.confidence, rationale: agent.rationale, evidenceRefs: { model: agent.model, impactScore: agent.impactScore, horizonMinutes: agent.horizonMinutes, risks: agent.risks, missingData: agent.missingData, evidenceRefs: agent.evidenceRefs } })));
+      await appendAuditEventToDb({ ownerId, eventType: "agent_army_consensus", entityType: "early_warning", entityId: runEventId, payload: { eventId: entry.result.eventId, runId: entry.result.runId, model: entry.result.model, consensus: entry.result.consensus } });
+    }
+  }
+}
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -31,6 +49,12 @@ export const appRouter = router({
     signals: protectedProcedure.query(({ ctx }) => getSignalsByOwner(ctx.user.id)),
     intelligence: protectedProcedure.query(({ ctx }) => getIntelligenceByOwner(ctx.user.id)),
     earlyWarnings: protectedProcedure.input(z.object({ query: z.string().min(3).max(240).optional() }).optional()).query(({ input }) => fetchEarlyWarnings(input?.query)),
+    agentRuns: protectedProcedure.query(({ ctx }) => getAgentRunsByOwner(ctx.user.id)),
+    agentRunEvents: protectedProcedure.input(z.object({ runId: z.number().int().positive().optional() }).optional()).query(({ ctx, input }) => getAgentRunEventsByOwner(ctx.user.id, input?.runId)),
+    agentModels: protectedProcedure.query(async () => (await listLLMModels()).data.map(model => ({ id: model.id, owner: model.owned_by }))),
+    analyzeEvent: protectedProcedure.input(z.object({ event: radarEventInput, options: agentRunOptionsInput })).mutation(async ({ ctx, input }) => { const startedAt = new Date(); const runId = await createAgentRun({ ownerId: ctx.user.id, mode: "single", status: "running", requestedCount: 1, maxCalls: (input.options?.agentBudget ?? 6) * (1 + (input.options?.retryCount ?? 1)), budgetUnits: input.options?.agentBudget ?? 6, startedAt }); try { const result = await runAgentArmy(input.event, input.options); await persistArmyResults(ctx.user.id, runId, [{ event: input.event, result }]); await updateAgentRun(ctx.user.id, runId ?? 0, { status: result.consensus.canPaperTest ? "completed" : "partial", completedCount: result.analyses.filter(agent => agent.status === "completed").length, failedCount: result.analyses.filter(agent => agent.status === "failed").length, finishedAt: new Date() }); return result; } catch (error) { if (runId) await updateAgentRun(ctx.user.id, runId, { status: "failed", failedCount: 1, finishedAt: new Date() }); throw error; } }),
+    analyzeBatch: protectedProcedure.input(z.object({ events: z.array(radarEventInput).min(1).max(MAX_AGENT_BATCH_EVENTS), options: agentRunOptionsInput })).mutation(async ({ ctx, input }) => { const startedAt = new Date(); const runId = await createAgentRun({ ownerId: ctx.user.id, mode: "batch", status: "running", requestedCount: input.events.length, maxCalls: input.events.length * (input.options?.agentBudget ?? 6) * (1 + (input.options?.retryCount ?? 1)), budgetUnits: input.events.length * (input.options?.agentBudget ?? 6), startedAt }); const cancelToken = { cancelled: false }; if (runId) activeBatchCancels.set(runId, cancelToken); try { const results = await runAgentArmyBatch(input.events, { ...input.options, shouldCancel: () => cancelToken.cancelled }); await persistArmyResults(ctx.user.id, runId, results); const completed = results.filter(entry => entry.result).length; if (runId) await updateAgentRun(ctx.user.id, runId, { status: cancelToken.cancelled ? "cancelled" : completed === results.length ? "completed" : completed ? "partial" : "failed", completedCount: completed, failedCount: results.length - completed, finishedAt: new Date() }); return { runId, results }; } finally { if (runId) activeBatchCancels.delete(runId); } }),
+    cancelBatch: protectedProcedure.input(z.object({ runId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const token = activeBatchCancels.get(input.runId); if (token) token.cancelled = true; await updateAgentRun(ctx.user.id, input.runId, buildCancelledRunPatch()); await appendAuditEventToDb(buildAgentBatchCancelledAudit(ctx.user.id, input.runId)); return { runId: input.runId, cancelled: true }; }),
     paperAlerts: protectedProcedure.query(({ ctx }) => getPaperAlertsByOwner(ctx.user.id)),
     recordPaperAlert: protectedProcedure.input(z.object({ warningId: z.string().max(160), headline: z.string().min(1).max(500), severity: z.enum(["low", "medium", "high"]), confidence: z.number().int().min(0).max(100), reason: z.string().min(1).max(500) })).mutation(({ ctx, input }) => recordPaperAlert({ ...input, ownerId: ctx.user.id })),
     opportunities: protectedProcedure.query(({ ctx }) => getOpportunityRecordsByOwner(ctx.user.id)),

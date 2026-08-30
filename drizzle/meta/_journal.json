@@ -43,6 +43,13 @@
       "when": 1788010603307,
       "tag": "0005_big_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1788083830998,
+      "tag": "0006_old_gravity",
+      "breakpoints": true
     }
   ]
 }

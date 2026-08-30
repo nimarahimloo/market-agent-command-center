@@ -132,3 +132,33 @@
 - [x] Add persistence-path tests for paper alert dedupe, owner scope, timestamps, and audit linkage.
 - [x] Show the complete event-specific lens breakdown inside each radar item, not only summary Δ/U badges.
 - [x] Cover paper-alert dedupe and audit-payload rules in unit tests that are reused by the DB helper.
+- [x] Define independent agent roles, input evidence contract, structured JSON output, and provenance fields.
+- [x] Add server-side multi-agent orchestrator with runtime model discovery and bounded parallel fan-out.
+- [x] Implement event-specific agents for technical, macro/news, event impact, cross-market, risk, and skeptic review.
+- [x] Add consensus synthesis with disagreement, uncertainty, dissent, evidence refs, and no-signal gates.
+- [x] Persist event analysis runs and agent outputs with owner scope and audit linkage.
+- [x] Replace heuristic radar lens display with persisted real agent analysis and explicit loading/failure states.
+- [x] Add paper-only execution controls, model/cost budget, cancellation, retry, and live-trading policy guards.
+- [x] Add Vitest coverage for orchestrator schemas, fan-out isolation, consensus gates, provenance, and failure states.
+- [x] Define agent run lifecycle states, batch input limits, timeout policy, and per-run budget.
+- [x] Add bounded batch analysis for multiple radar events with failure isolation and cancellation state.
+- [x] Persist agent run summaries and event-level consensus records owner-scoped with audit linkage.
+- [x] Add Agent workspace controls for batch execution, run history, status, and per-event drill-down.
+- [x] Add tests for batch limits, timeout/failure isolation, run persistence, and owner authorization.
+- [x] Add a sixth skeptic/dissent agent role and persist its output alongside the other agent roles.
+- [x] Extend consensus output with explicit dissent and aggregated evidenceRefs, then cover both in tests.
+- [x] Load persisted event analyses on the Radar page and remove heuristic lens fallback once real analysis exists for an event.
+- [x] Add cancellation API/UI and tests for cancelled batch runs and lifecycle transitions.
+- [x] Add Agent workspace per-event drill-down using persisted run events and linked agent outputs.
+- [x] Add Vitest coverage for timeout handling and agent run/event persistence queries.
+- [x] Add retry controls and server/client retry flow for failed single-event and batch agent runs, with visible paper-only status.
+- [x] Add configurable model/budget controls for agent runs and enforce them in the orchestrator/UI.
+- [x] Add Vitest tests covering batch cancellation, cancelled lifecycle transitions, and cancelBatch behavior.
+- [x] Extend Agent workspace drill-down to show per-event linked persisted agent outputs for the selected run/event.
+- [x] Add Vitest coverage for agent timeout handling and owner-scoped agentRuns / agentRunEvents persistence queries.
+- [x] Add direct router/persistence tests proving cancelBatch marks a run cancelled, records lifecycle fields, and writes the expected audit event.
+- [x] Expand Agent workspace drill-down to render linked persisted agent output details per event/run: role, stance, confidence, rationale, and evidence refs.
+- [x] Add owner-scope persistence tests for agentRuns and agentRunEvents proving authenticated-owner isolation at the query layer.
+- [x] Add a database-backed persistence-path test for cancelBatch that verifies the run row becomes cancelled and the audit row is stored.
+- [x] Render linked agent role, stance, confidence, rationale, and evidence refs in Agent workspace drill-down.
+- [x] Add database/helper tests with mixed-owner agent run and event records proving query-layer isolation.

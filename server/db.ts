@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, agentOutputs, auditEvents, historicalDataRuns, historicalDatasets, intelligenceItems, integrations, instruments, opportunityHistory, opportunityRecords, paperAlerts, riskControls, signals, simulations, users } from "../drizzle/schema";
+import { InsertUser, agentOutputs, agentRunEvents, agentRuns, auditEvents, historicalDataRuns, historicalDatasets, intelligenceItems, integrations, instruments, opportunityHistory, opportunityRecords, paperAlerts, riskControls, signals, simulations, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { ownerScoped } from "../shared/ownership";
 import { paperAlertAuditPayload, shouldPersistPaperAlert } from "../shared/radarTools";
@@ -116,6 +116,64 @@ export async function getIntelligenceByOwner(ownerId: number) {
   const db = await getDb();
   if (!db) return [];
   const rows = await db.select().from(intelligenceItems).where(eq(intelligenceItems.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function recordAgentOutput(input: {
+  ownerId: number;
+  role: string;
+  stance: string;
+  confidence: number;
+  rationale: string;
+  evidenceRefs: unknown;
+  runId?: number;
+  eventId?: string;
+}) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(agentOutputs).values({ ownerId: input.ownerId, runId: input.runId, eventId: input.eventId, role: input.role, stance: input.stance, confidence: input.confidence, rationale: input.rationale, evidenceRefs: input.evidenceRefs });
+  await appendAuditEventToDb({ ownerId: input.ownerId, eventType: "agent_output_created", entityType: "agent_output", payload: { role: input.role, stance: input.stance, confidence: input.confidence, evidenceRefs: input.evidenceRefs } });
+  return result;
+}
+
+export async function createAgentRun(input: typeof agentRuns.$inferInsert) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(agentRuns).values(input);
+  return Number(result[0].insertId);
+}
+
+export async function updateAgentRun(ownerId: number, id: number, patch: Partial<typeof agentRuns.$inferInsert>) {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db.update(agentRuns).set(patch).where(and(eq(agentRuns.id, id), eq(agentRuns.ownerId, ownerId)));
+  return id;
+}
+
+export async function createAgentRunEvent(input: typeof agentRunEvents.$inferInsert) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(agentRunEvents).values(input);
+  return Number(result[0].insertId);
+}
+
+export async function updateAgentRunEvent(ownerId: number, id: number, patch: Partial<typeof agentRunEvents.$inferInsert>) {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db.update(agentRunEvents).set(patch).where(and(eq(agentRunEvents.id, id), eq(agentRunEvents.ownerId, ownerId)));
+  return id;
+}
+
+export async function getAgentRunsByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return ownerScoped(await db.select().from(agentRuns).where(eq(agentRuns.ownerId, ownerId)), ownerId);
+}
+
+export async function getAgentRunEventsByOwner(ownerId: number, runId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(agentRunEvents).where(runId === undefined ? eq(agentRunEvents.ownerId, ownerId) : and(eq(agentRunEvents.ownerId, ownerId), eq(agentRunEvents.runId, runId)));
   return ownerScoped(rows, ownerId);
 }
 
