@@ -1,11 +1,3 @@
-export type MacroCalendarEvent = {
-  title: string;
-  scheduledAt: string;
-  source: "FRED Release Calendar" | "New York Fed Economic Indicators Calendar";
-  url: string;
-  importance: "scheduled";
-};
-
 export type MacroRateObservation = {
   seriesId: string;
   label: string;
@@ -15,6 +7,11 @@ export type MacroRateObservation = {
   source: "FRED";
   url: string;
 };
+
+import { calculateSurprise, type SurpriseResult } from "../shared/surprise";
+
+export type MacroCalendarEvent = MacroCalendarEventBase & { actual: number | null; forecast: number | null; previous: number | null; unit: string | null; surprise: SurpriseResult };
+type MacroCalendarEventBase = { title: string; scheduledAt: string; source: "FRED Release Calendar" | "New York Fed Economic Indicators Calendar" | "TradingEconomics Calendar"; url: string; importance: "scheduled" };
 
 export type MacroContext = {
   retrievedAt: number;
@@ -50,10 +47,24 @@ export function parseCalendarHtml(html: string, source: MacroCalendarEvent["sour
     const href = match[1].startsWith("http") ? match[1] : new URL(match[1], sourceUrl).toString();
     const nearby = html.slice(Math.max(0, match.index - 220), Math.min(html.length, match.index + 220)).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const dateMatch = nearby.match(/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}\/\d{1,2}/i);
-    events.push({ title, scheduledAt: dateMatch ? dateMatch[0] : now.toISOString(), source, url: href, importance: "scheduled" });
+    events.push({ title, scheduledAt: dateMatch ? dateMatch[0] : now.toISOString(), source, url: href, importance: "scheduled", actual: null, forecast: null, previous: null, unit: null, surprise: calculateSurprise({}) });
     if (events.length >= 40) break;
   }
   return Array.from(new Map(events.map(event => [`${event.title}|${event.scheduledAt}`, event])).values());
+}
+
+type TradingEconomicsRecord = { Event?: string; Date?: string; Actual?: number | string | null; Forecast?: number | string | null; Previous?: number | string | null; Unit?: string | null; URL?: string | null };
+
+function optionalNumber(value: unknown) { const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value.replace(/,/g, "")) : NaN; return Number.isFinite(number) ? number : null; }
+
+export function parseTradingEconomicsCalendar(payload: unknown, retrievedAt = Date.now()): MacroCalendarEvent[] {
+  if (!Array.isArray(payload)) return [];
+  return payload.flatMap(record => {
+    const row = record as TradingEconomicsRecord;
+    if (!row.Event || !row.Date) return [];
+    const actual = optionalNumber(row.Actual), forecast = optionalNumber(row.Forecast), previous = optionalNumber(row.Previous);
+    return [{ title: row.Event, scheduledAt: row.Date, source: "TradingEconomics Calendar" as const, url: row.URL ?? "https://tradingeconomics.com/calendar", importance: "scheduled" as const, actual, forecast, previous, unit: row.Unit ?? null, surprise: calculateSurprise({ actual, forecast, previous, scale: "absolute" }) }];
+  });
 }
 
 async function fetchText(url: string) {
@@ -66,15 +77,19 @@ export async function buildMacroContext(): Promise<MacroContext> {
   const retrievedAt = Date.now();
   const warnings: string[] = [];
   const provenance: string[] = [FRED_CALENDAR_URL, NY_FED_CALENDAR_URL, ...SERIES.map(([id]) => `https://fred.stlouisfed.org/series/${id}`)];
-  const [fredCalendar, nyFedCalendar, ...rateResults] = await Promise.all([
+  const [fredCalendar, nyFedCalendar, tradingEconomicsCalendar, ...rateResults] = await Promise.all([
     fetchText(FRED_CALENDAR_URL).catch(error => { warnings.push(`FRED calendar unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return ""; }),
     fetchText(NY_FED_CALENDAR_URL).catch(error => { warnings.push(`New York Fed calendar unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return ""; }),
+    fetchText("https://api.tradingeconomics.com/calendar/country/United%20States?c=guest:guest").catch(error => { warnings.push(`TradingEconomics calendar unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return ""; }),
     ...SERIES.map(([id, label]) => fetchText(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10)}&coed=${new Date().toISOString().slice(0, 10)}`).then(csv => parseFredCsv(id, label, csv, retrievedAt)).catch(error => { warnings.push(`${id} unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return []; })),
   ]);
-  const calendar = [
+  let tradingEconomicsEvents: MacroCalendarEvent[] = [];
+  if (tradingEconomicsCalendar) { try { tradingEconomicsEvents = parseTradingEconomicsCalendar(JSON.parse(tradingEconomicsCalendar), retrievedAt); } catch { warnings.push("TradingEconomics calendar returned invalid JSON; surprise fields are unavailable."); } }
+  const fallbackCalendar = [
     ...parseCalendarHtml(fredCalendar, "FRED Release Calendar", FRED_CALENDAR_URL),
     ...parseCalendarHtml(nyFedCalendar, "New York Fed Economic Indicators Calendar", NY_FED_CALENDAR_URL),
-  ].slice(0, 60);
+  ];
+  const calendar = [...tradingEconomicsEvents, ...(tradingEconomicsEvents.length ? [] : fallbackCalendar)].slice(0, 60);
   const rates = rateResults.flat();
   if (!calendar.length) warnings.push("No economic calendar events were returned; macro agent must not infer upcoming releases.");
   if (!rates.length) warnings.push("No FRED rate observations were returned; policy-rate conclusions are unavailable.");

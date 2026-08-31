@@ -174,3 +174,9 @@
 - [x] Pass macro context only to macro/event agents and persist its provenance/dataRefs with outputs.
 - [x] Show macro context coverage, upcoming events, policy-rate observations, as-of time, and quality warnings in Agent workspace.
 - [x] Add Vitest coverage for normalization, timezone/date handling, stale/missing provider data, and prompt context routing.
+- [x] Define surprise-event contract with actual, forecast, previous, units, release time, source, and availability states.
+- [x] Connect a real provider/feed that exposes forecast, actual, and previous values; do not infer missing values.
+- [x] Normalize numeric values and units, calculate absolute/relative surprise, and classify direction with explicit missing-data gates.
+- [x] Pass event surprise context to macro/event agents and persist the related provenance/dataRefs.
+- [x] Show actual vs forecast vs previous and surprise status in the Agent workspace and event drill-down.
+- [x] Add Vitest coverage for parsing, unit normalization, sign/direction rules, missing fields, stale data, and provider failures.
