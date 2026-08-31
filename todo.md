@@ -168,3 +168,9 @@
 - [x] Pass role-specific context into structured agent prompts and persist context provenance with each output.
 - [x] Show data coverage, as-of time, quality warnings, and unavailable-provider states in the UI.
 - [x] Add Vitest coverage for context derivation, indicator math, missing-data gates, provenance, and provider failures.
+- [x] Define macro context contract for economic calendar events and policy-rate time series with source/as-of fields.
+- [x] Connect a real economic-calendar provider and a real interest-rate provider without fabricating events or values.
+- [x] Add bounded caching, date-range limits, normalization, and explicit unavailable/stale warnings for macro data.
+- [x] Pass macro context only to macro/event agents and persist its provenance/dataRefs with outputs.
+- [x] Show macro context coverage, upcoming events, policy-rate observations, as-of time, and quality warnings in Agent workspace.
+- [x] Add Vitest coverage for normalization, timezone/date handling, stale/missing provider data, and prompt context routing.

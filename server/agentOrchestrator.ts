@@ -1,6 +1,7 @@
 import { invokeLLM, listLLMModels } from "./_core/llm";
 import type { EarlyWarningItem } from "./intelligence";
 import { buildMarketContext, type MarketContext } from "./marketContext";
+import { buildMacroContext, type MacroContext } from "./macroContext";
 
 export const AGENT_ROLES = [
   { id: "technical", label: "Technical analyst", mandate: "Assess price/market-structure implications and state what market data is missing." },
@@ -100,11 +101,12 @@ function parseAnalysis(role: AgentRole, model: string, content: unknown): AgentA
   return { role, model, stance: stance as AgentAnalysis["stance"], confidence: integer("confidence", 0, 100), impactScore: integer("impactScore", 0, 100), horizonMinutes: integer("horizonMinutes", 1, 10080), rationale, risks: strings("risks", 6), evidenceRefs: strings("evidenceRefs", 8), missingData: strings("missingData", 6), dataRefs: strings("dataRefs", 12), status: "completed" };
 }
 
-function roleContext(role: AgentRole, contexts: MarketContext[]) {
+function roleContext(role: AgentRole, contexts: MarketContext[], macro: MacroContext) {
   if (role === "technical") return contexts.map(context => ({ ...context, warnings: context.warnings, focus: "OHLCV indicators, returns, volatility, and data gaps" }));
   if (role === "cross-market") return contexts.map(context => ({ market: context.market, symbol: context.symbol, proxy: context.proxy, return1d: context.return1d, return5d: context.return5d, volatility20: context.volatility20, asOf: context.asOf, warnings: context.warnings, provenance: context.provenance }));
   if (role === "risk") return contexts.map(context => ({ market: context.market, symbol: context.symbol, bars: context.bars, asOf: context.asOf, warnings: context.warnings, provenance: context.provenance }));
-  return contexts.map(context => ({ market: context.market, proxy: context.proxy, asOf: context.asOf, return1d: context.return1d, volatility20: context.volatility20, warnings: context.warnings, provenance: context.provenance }));
+  const base = contexts.map(context => ({ market: context.market, proxy: context.proxy, asOf: context.asOf, return1d: context.return1d, volatility20: context.volatility20, warnings: context.warnings, provenance: context.provenance }));
+  return role === "macro" || role === "event" ? { market: base, economicCalendar: macro.calendar, policyRates: macro.rates, warnings: macro.warnings, provenance: macro.provenance } : base;
 }
 
 function consensus(analyses: AgentAnalysis[]): AgentArmyResult["consensus"] {
@@ -132,11 +134,11 @@ export async function runAgentArmy(item: EarlyWarningItem, options: AgentRunOpti
   const catalog = await listLLMModels();
   const model = options.modelId ?? catalog.data.find(candidate => candidate.id === "gpt-5-mini")?.id ?? catalog.data.find(candidate => candidate.id === "claude-haiku-4-5")?.id ?? catalog.data[0]?.id;
   if (!model || !catalog.data.some(candidate => candidate.id === model)) throw new Error("Requested LLM model is not available");
-  const marketContext = await buildMarketContext(item);
+  const [marketContext, macroContext] = await Promise.all([buildMarketContext(item), buildMacroContext()]);
   const event = JSON.stringify({ id: item.id, title: item.title, source: item.source, sourceTier: item.sourceTier, url: item.url, publishedAt: item.publishedAt, markets: item.markets, entities: item.entities, tone: item.tone, corroboration: item.corroboration, confidence: item.confidence, freshness: item.freshness });
   const context = JSON.stringify(marketContext);
   const results = await Promise.all(AGENT_ROLES.slice(0, agentBudget).map(async role => {
-    const roleSpecificContext = JSON.stringify(roleContext(role.id, marketContext));
+    const roleSpecificContext = JSON.stringify(roleContext(role.id, marketContext, macroContext));
     let lastError = "Unknown agent failure";
     for (let attempt = 0; attempt <= retryCount; attempt += 1) {
       try {

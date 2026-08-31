@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
 });
 vi.mock("./_core/llm", () => mocks);
 vi.mock("./marketContext", () => ({ buildMarketContext: vi.fn(async () => []) }));
+vi.mock("./macroContext", () => ({ buildMacroContext: vi.fn(async () => ({ retrievedAt: 1, calendar: [], rates: [], warnings: [], provenance: [] })) }));
 const { runAgentArmy, runAgentArmyBatch } = await import("./agentOrchestrator");
 
 const event = {
