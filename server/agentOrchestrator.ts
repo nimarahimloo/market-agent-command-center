@@ -1,5 +1,6 @@
 import { invokeLLM, listLLMModels } from "./_core/llm";
 import type { EarlyWarningItem } from "./intelligence";
+import { buildMarketContext, type MarketContext } from "./marketContext";
 
 export const AGENT_ROLES = [
   { id: "technical", label: "Technical analyst", mandate: "Assess price/market-structure implications and state what market data is missing." },
@@ -22,6 +23,7 @@ export type AgentAnalysis = {
   risks: string[];
   evidenceRefs: string[];
   missingData: string[];
+  dataRefs: string[];
   status: "completed" | "failed";
   error?: string;
   model: string;
@@ -66,8 +68,9 @@ const outputSchema = {
       risks: { type: "array", items: { type: "string", maxLength: 240 }, maxItems: 6 },
       evidenceRefs: { type: "array", items: { type: "string", maxLength: 500 }, maxItems: 8 },
       missingData: { type: "array", items: { type: "string", maxLength: 240 }, maxItems: 6 },
+      dataRefs: { type: "array", items: { type: "string", maxLength: 500 }, maxItems: 12 },
     },
-    required: ["stance", "confidence", "impactScore", "horizonMinutes", "rationale", "risks", "evidenceRefs", "missingData"],
+    required: ["stance", "confidence", "impactScore", "horizonMinutes", "rationale", "risks", "evidenceRefs", "missingData", "dataRefs"],
     additionalProperties: false,
   },
 } as const;
@@ -94,7 +97,14 @@ function parseAnalysis(role: AgentRole, model: string, content: unknown): AgentA
   const strings = (key: string, maxItems: number) => Array.isArray(parsed[key]) ? parsed[key].filter(value => typeof value === "string").slice(0, maxItems) as string[] : [];
   const rationale = typeof parsed.rationale === "string" ? parsed.rationale.trim() : "";
   if (!rationale) throw new Error("Agent returned no rationale");
-  return { role, model, stance: stance as AgentAnalysis["stance"], confidence: integer("confidence", 0, 100), impactScore: integer("impactScore", 0, 100), horizonMinutes: integer("horizonMinutes", 1, 10080), rationale, risks: strings("risks", 6), evidenceRefs: strings("evidenceRefs", 8), missingData: strings("missingData", 6), status: "completed" };
+  return { role, model, stance: stance as AgentAnalysis["stance"], confidence: integer("confidence", 0, 100), impactScore: integer("impactScore", 0, 100), horizonMinutes: integer("horizonMinutes", 1, 10080), rationale, risks: strings("risks", 6), evidenceRefs: strings("evidenceRefs", 8), missingData: strings("missingData", 6), dataRefs: strings("dataRefs", 12), status: "completed" };
+}
+
+function roleContext(role: AgentRole, contexts: MarketContext[]) {
+  if (role === "technical") return contexts.map(context => ({ ...context, warnings: context.warnings, focus: "OHLCV indicators, returns, volatility, and data gaps" }));
+  if (role === "cross-market") return contexts.map(context => ({ market: context.market, symbol: context.symbol, proxy: context.proxy, return1d: context.return1d, return5d: context.return5d, volatility20: context.volatility20, asOf: context.asOf, warnings: context.warnings, provenance: context.provenance }));
+  if (role === "risk") return contexts.map(context => ({ market: context.market, symbol: context.symbol, bars: context.bars, asOf: context.asOf, warnings: context.warnings, provenance: context.provenance }));
+  return contexts.map(context => ({ market: context.market, proxy: context.proxy, asOf: context.asOf, return1d: context.return1d, volatility20: context.volatility20, warnings: context.warnings, provenance: context.provenance }));
 }
 
 function consensus(analyses: AgentAnalysis[]): AgentArmyResult["consensus"] {
@@ -122,16 +132,19 @@ export async function runAgentArmy(item: EarlyWarningItem, options: AgentRunOpti
   const catalog = await listLLMModels();
   const model = options.modelId ?? catalog.data.find(candidate => candidate.id === "gpt-5-mini")?.id ?? catalog.data.find(candidate => candidate.id === "claude-haiku-4-5")?.id ?? catalog.data[0]?.id;
   if (!model || !catalog.data.some(candidate => candidate.id === model)) throw new Error("Requested LLM model is not available");
+  const marketContext = await buildMarketContext(item);
   const event = JSON.stringify({ id: item.id, title: item.title, source: item.source, sourceTier: item.sourceTier, url: item.url, publishedAt: item.publishedAt, markets: item.markets, entities: item.entities, tone: item.tone, corroboration: item.corroboration, confidence: item.confidence, freshness: item.freshness });
+  const context = JSON.stringify(marketContext);
   const results = await Promise.all(AGENT_ROLES.slice(0, agentBudget).map(async role => {
+    const roleSpecificContext = JSON.stringify(roleContext(role.id, marketContext));
     let lastError = "Unknown agent failure";
     for (let attempt = 0; attempt <= retryCount; attempt += 1) {
       try {
-        const response = await withTimeout(invokeLLM({ model, messages: [{ role: "system", content: `You are the ${role.label}. Work independently. ${role.mandate} Do not invent facts, prices, sources, or balances. Treat the supplied article as evidence, not truth. Return JSON only.` }, { role: "user", content: `Analyze this single market event for a private research dashboard. Cite only the supplied URL in evidenceRefs and explicitly list missing data. Event: ${event}` }], response_format: { type: "json_schema", json_schema: outputSchema } }), timeoutMs);
+        const response = await withTimeout(invokeLLM({ model, messages: [{ role: "system", content: `You are the ${role.label}. Work independently. ${role.mandate} Do not invent facts, prices, sources, or balances. Treat the supplied article as evidence, not truth. Return JSON only.` }, { role: "user", content: `Analyze this single market event for a private research dashboard. Use the supplied market context for calculations, cite the supplied URL in evidenceRefs, cite provider/as-of context strings in dataRefs, and explicitly list missing data. Never treat a proxy as the underlying instrument. Event: ${event}\nMarket context for your role: ${roleSpecificContext}\nAll fetched context: ${context}` }], response_format: { type: "json_schema", json_schema: outputSchema } }), timeoutMs);
         return parseAnalysis(role.id, model, response.choices[0]?.message.content);
       } catch (error) { lastError = error instanceof Error ? error.message : "Unknown agent failure"; }
     }
-    return { role: role.id, model, stance: "no-signal", confidence: 0, impactScore: 0, horizonMinutes: 0, rationale: "Agent failed; no inference is available.", risks: ["Agent failure requires human review."], evidenceRefs: [], missingData: ["Valid structured agent output"], status: "failed", error: lastError } satisfies AgentAnalysis;
+    return { role: role.id, model, stance: "no-signal", confidence: 0, impactScore: 0, horizonMinutes: 0, rationale: "Agent failed; no inference is available.", risks: ["Agent failure requires human review."], evidenceRefs: [], missingData: ["Valid structured agent output"], dataRefs: [], status: "failed", error: lastError } satisfies AgentAnalysis;
   }));
   return { eventId: item.id, runId: `army-${item.id}-${Date.now()}`, model, analyses: results, consensus: consensus(results), createdAt: new Date().toISOString() };
 }

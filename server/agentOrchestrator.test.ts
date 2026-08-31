@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
     risks: ["Headline may be incomplete"],
     evidenceRefs: ["https://example.com/event"],
     missingData: ["Price and volume confirmation"],
+    dataRefs: ["Massive:as-of"],
   };
   return {
     listLLMModels: vi.fn(async () => ({ data: [{ id: "gpt-5-mini", object: "model", created: 1, owned_by: "openai" }] })),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 vi.mock("./_core/llm", () => mocks);
+vi.mock("./marketContext", () => ({ buildMarketContext: vi.fn(async () => []) }));
 const { runAgentArmy, runAgentArmyBatch } = await import("./agentOrchestrator");
 
 const event = {

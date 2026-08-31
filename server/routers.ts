@@ -23,7 +23,7 @@ async function persistArmyResults(ownerId: number, runId: number | undefined, re
   for (const entry of results) {
     const runEventId = runId ? await createAgentRunEvent({ ownerId, runId, eventId: entry.event.id, status: entry.result ? "completed" : "failed", consensus: entry.result?.consensus, error: entry.error }) : undefined;
     if (entry.result) {
-      await Promise.all(entry.result.analyses.filter(agent => agent.status === "completed").map(agent => recordAgentOutput({ ownerId, runId, eventId: entry.result!.eventId, role: agent.role, stance: agent.stance, confidence: agent.confidence, rationale: agent.rationale, evidenceRefs: { model: agent.model, impactScore: agent.impactScore, horizonMinutes: agent.horizonMinutes, risks: agent.risks, missingData: agent.missingData, evidenceRefs: agent.evidenceRefs } })));
+      await Promise.all(entry.result.analyses.filter(agent => agent.status === "completed").map(agent => recordAgentOutput({ ownerId, runId, eventId: entry.result!.eventId, role: agent.role, stance: agent.stance, confidence: agent.confidence, rationale: agent.rationale, evidenceRefs: { model: agent.model, impactScore: agent.impactScore, horizonMinutes: agent.horizonMinutes, risks: agent.risks, missingData: agent.missingData, evidenceRefs: agent.evidenceRefs, dataRefs: agent.dataRefs } })));
       await appendAuditEventToDb({ ownerId, eventType: "agent_army_consensus", entityType: "early_warning", entityId: runEventId, payload: { eventId: entry.result.eventId, runId: entry.result.runId, model: entry.result.model, consensus: entry.result.consensus } });
     }
   }

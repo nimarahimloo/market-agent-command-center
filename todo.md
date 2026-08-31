@@ -162,3 +162,9 @@
 - [x] Add a database-backed persistence-path test for cancelBatch that verifies the run row becomes cancelled and the audit row is stored.
 - [x] Render linked agent role, stance, confidence, rationale, and evidence refs in Agent workspace drill-down.
 - [x] Add database/helper tests with mixed-owner agent run and event records proving query-layer isolation.
+- [x] Define per-agent market-data context contracts and supported-symbol mapping.
+- [x] Build server-side technical context from real historical OHLCV with indicators, freshness, gaps, and provenance.
+- [x] Build macro/event, cross-market, and risk contexts from available provider data without inventing missing fields.
+- [x] Pass role-specific context into structured agent prompts and persist context provenance with each output.
+- [x] Show data coverage, as-of time, quality warnings, and unavailable-provider states in the UI.
+- [x] Add Vitest coverage for context derivation, indicator math, missing-data gates, provenance, and provider failures.
