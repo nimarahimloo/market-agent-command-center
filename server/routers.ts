@@ -14,6 +14,7 @@ import { fetchEarlyWarnings, type EarlyWarningItem } from "./intelligence";
 import { listLLMModels } from "./_core/llm";
 import { buildAgentBatchCancelledAudit, buildCancelledRunPatch } from "../shared/agentRun";
 import { buildMacroContext } from "./macroContext";
+import { calculatePostReleaseReaction } from "../shared/marketReaction";
 
 const radarEventInput = z.object({ id: z.string().max(160), title: z.string().min(1).max(500), url: z.string().url(), publishedAt: z.string(), retrievedAt: z.string(), source: z.string(), sourceTier: z.enum(["discovery", "financial-media", "official"]), severity: z.enum(["low", "medium", "high"]), markets: z.array(z.string()).max(12), entities: z.array(z.string()).max(24), tone: z.number(), corroboration: z.enum(["single-source", "cross-source"]), confidence: z.number().int().min(0).max(100), leadTimeEstimateMinutes: z.number().int().min(1), freshness: z.enum(["fresh", "aging", "stale"]) });
 const MAX_AGENT_BATCH_EVENTS = 5;
@@ -82,6 +83,7 @@ export const appRouter = router({
       return result;
     }),
     historicalRuns: protectedProcedure.query(({ ctx }) => getHistoricalDataRunsByOwner(ctx.user.id)),
+    priceReaction: protectedProcedure.input(z.object({ symbol: z.string().min(1).max(40), releaseTimestamp: z.number().int().positive(), from: z.string(), to: z.string(), multiplier: z.number().int().min(1).max(60).default(1), timespan: z.enum(["minute", "hour", "day"]).default("minute") })).query(async ({ input }) => { const result = await fetchMassiveHistorical({ symbol: input.symbol, from: input.from, to: input.to, multiplier: input.multiplier, timespan: input.timespan, adjusted: true, limit: 50_000 }); const reaction = calculatePostReleaseReaction(result.bars, input.releaseTimestamp); return { ...reaction, provider: result.provider, symbol: input.symbol, provenance: result.provenance }; }),
     flatFileDatasets: protectedProcedure.query(({ ctx }) => getHistoricalDatasetsByOwner(ctx.user.id)),
     uploadFlatFile: protectedProcedure.input(z.object({
       name: z.string().min(1).max(160), format: z.enum(["csv", "ndjson"]), source: z.string().min(1).max(160).default("user-upload"), symbol: z.string().min(1).max(40), timezone: z.string().min(1).max(64).default("UTC"), interval: z.enum(["minute", "hour", "day", "week", "month"]).default("day"), contentBase64: z.string().min(1).max(35_000_000), mapping: z.record(z.string(), z.string()).optional(),

@@ -1,3 +1,6 @@
+export type MacroEconomicObservation = { seriesId: string; label: string; date: string; value: number; source: "FRED"; url: string };
+export type MacroRegime = { inflation: "rising" | "falling" | "stable" | "unknown"; growth: "expanding" | "contracting" | "stable" | "unknown"; asOf: string | null; evidence: string[] };
+
 export type MacroRateObservation = {
   seriesId: string;
   label: string;
@@ -19,6 +22,9 @@ export type MacroContext = {
   retrievedAt: number;
   calendar: MacroCalendarEvent[];
   rates: MacroRateObservation[];
+  cpi: MacroEconomicObservation[];
+  gdp: MacroEconomicObservation[];
+  regime: MacroRegime;
   warnings: string[];
   provenance: string[];
 };
@@ -26,6 +32,7 @@ export type MacroContext = {
 const FRED_CALENDAR_URL = "https://fred.stlouisfed.org/releases/calendar";
 const TRADING_ECONOMICS_CALENDAR_URL = "https://api.tradingeconomics.com/calendar/country/United%20States?c=guest:guest";
 const NY_FED_CALENDAR_URL = "https://www.newyorkfed.org/research/calendars/nationalecon_cal";
+const ECONOMIC_SERIES = [["CPIAUCSL", "Consumer Price Index"], ["GDP", "Gross Domestic Product"]] as const;
 const SERIES = [
   ["DFF", "Federal Funds Effective Rate"],
   ["DFEDTARU", "Federal Funds Target Range Upper Limit"],
@@ -36,8 +43,8 @@ function csvRows(csv: string) {
   return csv.split(/\r?\n/).slice(1).map(line => line.split(",")).filter(row => row.length >= 2 && /^\d{4}-\d{2}-\d{2}$/.test(row[0]) && row[1] !== ".");
 }
 
-export function parseFredCsv(seriesId: string, label: string, csv: string, retrievedAt = Date.now()): MacroRateObservation[] {
-  return csvRows(csv).slice(-90).map(row => ({ seriesId, label, date: row[0], value: Number(row[1]), units: "percent" as const, source: "FRED" as const, url: `https://fred.stlouisfed.org/series/${seriesId}` })).filter(row => Number.isFinite(row.value));
+export function parseFredCsv(seriesId: string, label: string, csv: string, retrievedAt = Date.now(), maxRows = 365): MacroRateObservation[] {
+  return csvRows(csv).slice(-maxRows).map(row => ({ seriesId, label, date: row[0], value: Number(row[1]), units: "percent" as const, source: "FRED" as const, url: `https://fred.stlouisfed.org/series/${seriesId}` })).filter(row => Number.isFinite(row.value));
 }
 
 export function parseCalendarHtml(html: string, source: MacroCalendarEvent["source"], sourceUrl: string, now = new Date()): MacroCalendarEvent[] {
@@ -86,14 +93,28 @@ export async function buildMacroContext(): Promise<MacroContext> {
   const warnings: string[] = [];
   const provenance: string[] = [FRED_CALENDAR_URL, NY_FED_CALENDAR_URL, TRADING_ECONOMICS_CALENDAR_URL, ...SERIES.map(([id]) => `https://fred.stlouisfed.org/series/${id}`)];
   const historyCalendarUrl = `https://api.tradingeconomics.com/calendar/country/United%20States?d1=${new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10)}&d2=${new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10)}&c=guest:guest`;
-  const [fredCalendar, nyFedCalendar, tradingEconomicsCalendar, tradingEconomicsHistory, ...rateResults] = await Promise.all([
+  const [fredCalendar, nyFedCalendar, tradingEconomicsCalendar, tradingEconomicsHistory, ...providerResults] = await Promise.all([
     fetchText(FRED_CALENDAR_URL).catch(error => { warnings.push(`FRED calendar unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return ""; }),
     fetchText(NY_FED_CALENDAR_URL).catch(error => { warnings.push(`New York Fed calendar unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return ""; }),
     fetchText("https://api.tradingeconomics.com/calendar/country/United%20States?c=guest:guest").catch(error => { warnings.push(`TradingEconomics calendar unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return ""; }),
     fetchText(historyCalendarUrl).catch(error => { warnings.push(`TradingEconomics history unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return ""; }),
     ...SERIES.map(([id, label]) => fetchText(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10)}&coed=${new Date().toISOString().slice(0, 10)}`).then(csv => parseFredCsv(id, label, csv, retrievedAt)).catch(error => { warnings.push(`${id} unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return []; })),
+    ...ECONOMIC_SERIES.map(([id, label]) => fetchText(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${new Date(Date.now() - 5 * 365 * 86_400_000).toISOString().slice(0, 10)}&coed=${new Date().toISOString().slice(0, 10)}`).then(csv => parseFredCsv(id, label, csv, retrievedAt)).catch(error => { warnings.push(`${id} unavailable: ${error instanceof Error ? error.message : "unknown error"}`); return []; })),
   ]);
-  const rates = rateResults.flat();
+  const providerSeries = providerResults.flat();
+  const rates = providerSeries.filter(row => SERIES.some(([id]) => id === row.seriesId));
+  const cpi = providerSeries.filter(row => row.seriesId === "CPIAUCSL");
+  const gdp = providerSeries.filter(row => row.seriesId === "GDP");
+  const inflationValues = cpi.slice(-13);
+  const latestCpi = inflationValues.at(-1)?.value ?? null;
+  const priorYearCpi = inflationValues.length >= 13 ? inflationValues[0]?.value ?? null : null;
+  const inflationChange = latestCpi !== null && priorYearCpi !== null ? latestCpi - priorYearCpi : null;
+  const inflation = inflationChange === null ? "unknown" : inflationChange > 0.5 ? "rising" : inflationChange < -0.5 ? "falling" : "stable";
+  const latestGdp = gdp.at(-1)?.value ?? null;
+  const priorGdp = gdp.length >= 2 ? gdp.at(-2)?.value ?? null : null;
+  const growthChange = latestGdp !== null && priorGdp !== null ? latestGdp - priorGdp : null;
+  const growth = growthChange === null ? "unknown" : growthChange > 0 ? "expanding" : growthChange < 0 ? "contracting" : "stable";
+  const regime: MacroRegime = { inflation, growth, asOf: cpi.at(-1)?.date ?? gdp.at(-1)?.date ?? null, evidence: [cpi.at(-1)?.date ? "FRED CPIAUCSL" : "", gdp.at(-1)?.date ? "FRED GDP" : ""].filter(Boolean) };
   const fedRates = rates.filter(rate => rate.seriesId === "DFF").sort((a, b) => a.date.localeCompare(b.date));
   const regimeAt = (date: string): EconomicRegime => { const observations = fedRates.filter(rate => rate.date <= date); const current = observations.at(-1)?.value ?? null; const prior = observations.length > 20 ? observations.at(-21)?.value ?? null : observations.at(0)?.value ?? null; return classifyEconomicRegime(current, prior); };
   let tradingEconomicsEvents: MacroCalendarEvent[] = [];
@@ -108,5 +129,7 @@ export async function buildMacroContext(): Promise<MacroContext> {
   const calendar = [...tradingEconomicsEvents, ...(tradingEconomicsEvents.length ? [] : fallbackCalendar)].slice(0, 60);
   if (!calendar.length) warnings.push("No economic calendar events were returned; macro agent must not infer upcoming releases.");
   if (!rates.length) warnings.push("No FRED rate observations were returned; policy-rate conclusions are unavailable.");
-  return { retrievedAt, calendar, rates, warnings, provenance };
+  if (!cpi.length) warnings.push("No FRED CPI observations were returned; inflation regime is unknown.");
+  if (!gdp.length) warnings.push("No FRED GDP observations were returned; growth regime is unknown.");
+  return { retrievedAt, calendar, rates, cpi, gdp, regime, warnings, provenance };
 }

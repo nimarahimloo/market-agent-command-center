@@ -10,6 +10,7 @@ export type ContextualSurprise = {
   rank: number | null;
   comparableCount: number;
   comparableReleases: HistoricalSurprise[];
+  distribution: Array<{ bin: string; count: number }>;
 };
 
 export function baselineKeyString(key: BaselineKey) { return `${key.indicator.toLowerCase()}|${key.country.toLowerCase()}|${key.regime}|${key.unit ?? "unknown"}`; }
@@ -38,9 +39,11 @@ export function selectContextualBaseline(key: BaselineKey, delta: number | null,
     if (history.length < minSample || delta === null) continue;
     const values = history.map(item => item.delta).sort((a, b) => a - b);
     const comparableReleases = history.slice().sort((a, b) => Math.abs(a.delta - delta) - Math.abs(b.delta - delta)).slice(0, 3);
-    return { baselineKey: key, fallbackLevel, percentile: percentileRank(delta, values), rank: values.filter(item => item < delta).length + 1, comparableCount: history.length, comparableReleases };
+    const min = values[0], max = values.at(-1) ?? min, width = max === min ? 1 : (max - min) / 8;
+    const distribution = Array.from({ length: 8 }, (_, index) => ({ bin: `${(min + index * width).toFixed(2)}`, count: history.filter(item => index === 7 ? item.delta >= min + index * width : item.delta >= min + index * width && item.delta < min + (index + 1) * width).length }));
+    return { baselineKey: key, fallbackLevel, percentile: percentileRank(delta, values), rank: values.filter(item => item < delta).length + 1, comparableCount: history.length, comparableReleases, distribution };
   }
-  return { baselineKey: key, fallbackLevel: "unavailable", percentile: null, rank: null, comparableCount: 0, comparableReleases: [] };
+  return { baselineKey: key, fallbackLevel: "unavailable", percentile: null, rank: null, comparableCount: 0, comparableReleases: [], distribution: [] };
 }
 
 export function buildBaselineGroups(rows: HistoricalSurprise[]) {

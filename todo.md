@@ -193,3 +193,12 @@
 - [x] Pass baseline key, regime, percentile, and comparable-release references to macro/event agents and persistence.
 - [x] Show multidimensional baseline metadata and historical comparisons in Agent workspace.
 - [x] Add Vitest coverage for grouping, regime boundaries, percentile ties, comparable selection, fallback, and insufficient history.
+- [ ] Calibrate surprise severity against real post-release price reactions at defined horizons with event-time alignment and data quality gates.
+- [x] Add historical distribution data and a functional percentile visualization for the current release.
+- [x] Fetch real CPI and GDP history and derive inflation/growth regime labels with unknown-state handling.
+- [ ] Route reaction calibration and CPI/GDP regime context to macro/event agents with provenance and persistence.
+- [x] Replace demo/read-only wording with explicit operational status panels while preserving paper-only and wallet safety guards.
+- [x] Create and validate a reusable skill documenting this market-intelligence build workflow using skill-creator.
+- [x] Add tests for event-time price reactions, CPI/GDP regime classification, distribution data, and operational-mode safety gates.
+- [x] Remove hardcoded quote/confidence presentation from overview and show verified provider-backed values or unavailable states.
+- [x] Align static workspace role catalog with the six-agent architecture and show which outputs are persisted versus awaiting a run.
