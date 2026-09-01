@@ -186,3 +186,10 @@
 - [x] Pass standardized surprise into macro/event agent structured context and persisted dataRefs.
 - [x] Show z-score, historical sample quality, baseline window, and unavailable states in the Agent workspace.
 - [x] Add Vitest coverage for baseline statistics, z-score math, robust outliers, low sample, stale, and zero variance cases.
+- [x] Define multidimensional baseline key: indicator, country, unit, release frequency, and economic regime.
+- [x] Implement real historical baseline grouping by indicator and country with regime-aware fallback rules.
+- [x] Calculate empirical percentile/rank and nearest comparable historical surprises with sample-quality gates.
+- [x] Derive regime labels only from observable rate/inflation/growth data and mark unknown when evidence is insufficient.
+- [x] Pass baseline key, regime, percentile, and comparable-release references to macro/event agents and persistence.
+- [x] Show multidimensional baseline metadata and historical comparisons in Agent workspace.
+- [x] Add Vitest coverage for grouping, regime boundaries, percentile ties, comparable selection, fallback, and insufficient history.
