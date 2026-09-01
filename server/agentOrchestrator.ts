@@ -106,7 +106,7 @@ function roleContext(role: AgentRole, contexts: MarketContext[], macro: MacroCon
   if (role === "cross-market") return contexts.map(context => ({ market: context.market, symbol: context.symbol, proxy: context.proxy, return1d: context.return1d, return5d: context.return5d, volatility20: context.volatility20, asOf: context.asOf, warnings: context.warnings, provenance: context.provenance }));
   if (role === "risk") return contexts.map(context => ({ market: context.market, symbol: context.symbol, bars: context.bars, asOf: context.asOf, warnings: context.warnings, provenance: context.provenance }));
   const base = contexts.map(context => ({ market: context.market, proxy: context.proxy, asOf: context.asOf, return1d: context.return1d, volatility20: context.volatility20, warnings: context.warnings, provenance: context.provenance }));
-  return role === "macro" || role === "event" ? { market: base, economicCalendar: macro.calendar, policyRates: macro.rates, warnings: macro.warnings, provenance: macro.provenance } : base;
+  return role === "macro" || role === "event" ? { market: base, economicCalendar: macro.calendar, policyRates: macro.rates, cpi: macro.cpi, gdp: macro.gdp, economicRegime: macro.regime, warnings: macro.warnings, provenance: macro.provenance } : base;
 }
 
 function consensus(analyses: AgentAnalysis[]): AgentArmyResult["consensus"] {
