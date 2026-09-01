@@ -180,3 +180,9 @@
 - [x] Pass event surprise context to macro/event agents and persist the related provenance/dataRefs.
 - [x] Show actual vs forecast vs previous and surprise status in the Agent workspace and event drill-down.
 - [x] Add Vitest coverage for parsing, unit normalization, sign/direction rules, missing fields, stale data, and provider failures.
+- [x] Define historical surprise baseline contract with observation window, sample count, mean, standard deviation, and provenance.
+- [x] Calculate standardized surprise z-score and robust severity from real historical releases per indicator.
+- [x] Enforce minimum sample, stale-history, zero-variance, and missing-value gates without fabricating a score.
+- [x] Pass standardized surprise into macro/event agent structured context and persisted dataRefs.
+- [x] Show z-score, historical sample quality, baseline window, and unavailable states in the Agent workspace.
+- [x] Add Vitest coverage for baseline statistics, z-score math, robust outliers, low sample, stale, and zero variance cases.
