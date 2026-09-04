@@ -17,6 +17,7 @@ import { buildMacroContext } from "./macroContext";
 import { calculatePostReleaseReaction, calibrateSurpriseSeverity } from "../shared/marketReaction";
 import { fetchReadOnlyWalletPortfolio, validatePublicWalletAddress, walletNetworkSchema } from "./wallet";
 import { getSessionTokenFromRequest } from "./sessionToken";
+import { deriveWalletMonitorState, shouldChangeWalletMonitor } from "../shared/walletMonitor";
 import { createHeartbeatJob, updateHeartbeatJob } from "./_core/heartbeat";
 
 const radarEventInput = z.object({ id: z.string().max(160), title: z.string().min(1).max(500), url: z.string().url(), publishedAt: z.string(), retrievedAt: z.string(), source: z.string(), sourceTier: z.enum(["discovery", "financial-media", "official"]), severity: z.enum(["low", "medium", "high"]), markets: z.array(z.string()).max(12), entities: z.array(z.string()).max(24), tone: z.number(), corroboration: z.enum(["single-source", "cross-source"]), confidence: z.number().int().min(0).max(100), leadTimeEstimateMinutes: z.number().int().min(1), freshness: z.enum(["fresh", "aging", "stale"]) });
@@ -71,7 +72,11 @@ export const appRouter = router({
     risk: protectedProcedure.query(({ ctx }) => getRiskControlsByOwner(ctx.user.id)),
     simulations: protectedProcedure.query(({ ctx }) => getSimulationsByOwner(ctx.user.id)),
     integrations: protectedProcedure.query(({ ctx }) => getIntegrationsByOwner(ctx.user.id)),
-    walletConnection: protectedProcedure.query(({ ctx }) => getWalletConnectionByOwner(ctx.user.id)),
+    walletConnection: protectedProcedure.query(async ({ ctx }) => {
+      const connection = await getWalletConnectionByOwner(ctx.user.id);
+      if (!connection) return null;
+      return { ...connection, monitorStatus: deriveWalletMonitorState({ enabled: connection.monitorEnabled, status: connection.monitorStatus, lastHeartbeatAt: connection.lastHeartbeatAt }) };
+    }),
     saveWalletConnection: protectedProcedure.input(z.object({ network: walletNetworkSchema, publicAddress: z.string().min(1).max(64) })).mutation(async ({ ctx, input }) => {
       if (!validatePublicWalletAddress(input.network, input.publicAddress)) throw new Error(`Invalid public ${input.network} address`);
       const connection = await upsertWalletConnection({ ownerId: ctx.user.id, network: input.network, publicAddress: input.publicAddress.trim(), isActive: true });
@@ -83,6 +88,7 @@ export const appRouter = router({
       if (!connection) throw new Error("Save a public wallet address before enabling the monitor");
       const sessionToken = getSessionTokenFromRequest(ctx.req);
       let taskUid = connection.monitorTaskUid;
+      if (!shouldChangeWalletMonitor({ enabled: connection.monitorEnabled, taskUid }, input.enabled)) return connection;
       if (input.enabled) {
         if (taskUid) {
           await updateHeartbeatJob(taskUid, { enable: true }, sessionToken);

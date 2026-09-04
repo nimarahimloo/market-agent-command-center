@@ -214,7 +214,7 @@
 - [x] Add Always-on monitor toggle with persisted owner-scoped runtime state
 - [x] Add persistent worker lifecycle/status/last-heartbeat UI for read-only data and paper automation
 - [x] Keep live order routing, withdrawals, transfers, and custody unavailable behind policy gates
-- [ ] Expand tests for idempotent start/stop and heartbeat staleness; authorization and no-custody safety invariants are covered
+- [x] Expand tests for idempotent start/stop and heartbeat staleness; authorization and no-custody safety invariants are covered
 
 - [x] Continue implementation of read-only wallet and always-on monitor after user confirmed to proceed
 - [x] Preserve explicit no-custody, no-withdrawal, no-unattended-live-order invariants throughout automation work
