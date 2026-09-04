@@ -137,6 +137,21 @@ export const integrations = mysqlTable("integrations", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const walletConnections = mysqlTable("walletConnections", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull().unique(),
+  network: mysqlEnum("network", ["ethereum", "base", "arbitrum", "polygon", "solana"]).notNull(),
+  publicAddress: varchar("publicAddress", { length: 64 }).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  monitorTaskUid: varchar("monitorTaskUid", { length: 65 }),
+  monitorEnabled: boolean("monitorEnabled").default(false).notNull(),
+  monitorStatus: varchar("monitorStatus", { length: 32 }).default("off").notNull(),
+  lastHeartbeatAt: timestamp("lastHeartbeatAt"),
+  lastReadAt: timestamp("lastReadAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const historicalDataRuns = mysqlTable("historicalDataRuns", {
   id: int("id").autoincrement().primaryKey(),
   ownerId: int("ownerId").notNull(),

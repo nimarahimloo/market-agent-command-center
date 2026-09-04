@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { appendAuditEventToDb, createAgentRun, createAgentRunEvent, getAgentOutputsByOwner, getAgentRunEventsByOwner, getAgentRunsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getHistoricalDatasetsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getOpportunityHistoryByOwner, getOpportunityRecordsByOwner, getPaperAlertsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, recordAgentOutput, recordHistoricalDataRun, recordHistoricalDataset, recordPaperAlert, updateAgentRun, updateOpportunityRecord, upsertOpportunityRecord } from "./db";
+import { appendAuditEventToDb, createAgentRun, createAgentRunEvent, getAgentOutputsByOwner, getAgentRunEventsByOwner, getAgentRunsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getHistoricalDatasetsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getOpportunityHistoryByOwner, getOpportunityRecordsByOwner, getPaperAlertsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, getWalletConnectionByOwner, getWalletConnectionByTaskUid, markWalletHeartbeat, markWalletReadAt, recordAgentOutput, recordHistoricalDataRun, recordHistoricalDataset, recordPaperAlert, updateAgentRun, updateOpportunityRecord, updateWalletMonitor, upsertOpportunityRecord, upsertWalletConnection } from "./db";
 import { fetchMassiveHistorical } from "./massiveData";
 import { runAgentArmy, runAgentArmyBatch } from "./agentOrchestrator";
 import { parseFlatFileChunks, type FlatFileMapping } from "../shared/flatFile";
@@ -15,6 +15,9 @@ import { listLLMModels } from "./_core/llm";
 import { buildAgentBatchCancelledAudit, buildCancelledRunPatch } from "../shared/agentRun";
 import { buildMacroContext } from "./macroContext";
 import { calculatePostReleaseReaction, calibrateSurpriseSeverity } from "../shared/marketReaction";
+import { fetchReadOnlyWalletPortfolio, validatePublicWalletAddress, walletNetworkSchema } from "./wallet";
+import { getSessionTokenFromRequest } from "./sessionToken";
+import { createHeartbeatJob, updateHeartbeatJob } from "./_core/heartbeat";
 
 const radarEventInput = z.object({ id: z.string().max(160), title: z.string().min(1).max(500), url: z.string().url(), publishedAt: z.string(), retrievedAt: z.string(), source: z.string(), sourceTier: z.enum(["discovery", "financial-media", "official"]), severity: z.enum(["low", "medium", "high"]), markets: z.array(z.string()).max(12), entities: z.array(z.string()).max(24), tone: z.number(), corroboration: z.enum(["single-source", "cross-source"]), confidence: z.number().int().min(0).max(100), leadTimeEstimateMinutes: z.number().int().min(1), freshness: z.enum(["fresh", "aging", "stale"]) });
 const MAX_AGENT_BATCH_EVENTS = 5;
@@ -68,6 +71,38 @@ export const appRouter = router({
     risk: protectedProcedure.query(({ ctx }) => getRiskControlsByOwner(ctx.user.id)),
     simulations: protectedProcedure.query(({ ctx }) => getSimulationsByOwner(ctx.user.id)),
     integrations: protectedProcedure.query(({ ctx }) => getIntegrationsByOwner(ctx.user.id)),
+    walletConnection: protectedProcedure.query(({ ctx }) => getWalletConnectionByOwner(ctx.user.id)),
+    saveWalletConnection: protectedProcedure.input(z.object({ network: walletNetworkSchema, publicAddress: z.string().min(1).max(64) })).mutation(async ({ ctx, input }) => {
+      if (!validatePublicWalletAddress(input.network, input.publicAddress)) throw new Error(`Invalid public ${input.network} address`);
+      const connection = await upsertWalletConnection({ ownerId: ctx.user.id, network: input.network, publicAddress: input.publicAddress.trim(), isActive: true });
+      await appendAuditEventToDb({ ownerId: ctx.user.id, eventType: "wallet_connection_saved", entityType: "public_wallet", payload: { network: input.network, address: input.publicAddress.trim(), readOnly: true, custody: false } });
+      return connection;
+    }),
+    walletMonitor: protectedProcedure.input(z.object({ enabled: z.boolean() })).mutation(async ({ ctx, input }) => {
+      const connection = await getWalletConnectionByOwner(ctx.user.id);
+      if (!connection) throw new Error("Save a public wallet address before enabling the monitor");
+      const sessionToken = getSessionTokenFromRequest(ctx.req);
+      let taskUid = connection.monitorTaskUid;
+      if (input.enabled) {
+        if (taskUid) {
+          await updateHeartbeatJob(taskUid, { enable: true }, sessionToken);
+        } else {
+          const job = await createHeartbeatJob({ name: `wallet-monitor-${ctx.user.id}`, cron: "0 * * * * *", path: "/api/scheduled/walletMonitor", description: "Read-only public wallet refresh; no orders, transfers, or custody." }, sessionToken);
+          taskUid = job.taskUid;
+        }
+      } else if (taskUid) {
+        await updateHeartbeatJob(taskUid, { enable: false }, sessionToken);
+      }
+      const updated = await updateWalletMonitor(ctx.user.id, { monitorEnabled: input.enabled, monitorTaskUid: taskUid, monitorStatus: input.enabled ? "scheduled" : "off" });
+      await appendAuditEventToDb({ ownerId: ctx.user.id, eventType: input.enabled ? "wallet_monitor_enabled" : "wallet_monitor_disabled", entityType: "public_wallet", payload: { taskUid, cadence: "60s", mode: "read-only-paper-only" } });
+      return updated;
+    }),
+    walletPortfolio: protectedProcedure.input(z.object({ network: walletNetworkSchema, address: z.string().min(1).max(64) })).query(async ({ ctx, input }) => {
+      const portfolio = await fetchReadOnlyWalletPortfolio(input);
+      await markWalletReadAt(ctx.user.id);
+      await appendAuditEventToDb({ ownerId: ctx.user.id, eventType: "wallet_read_only_refresh", entityType: "public_wallet", payload: { network: portfolio.network, address: portfolio.address, provider: portfolio.provider, retrievedAt: portfolio.retrievedAt, scope: portfolio.scope } });
+      return portfolio;
+    }),
     providerStatus: protectedProcedure.query(() => ({ provider: "Massive" as const, configured: Boolean(ENV.massiveApiKey), liveTradingEnabled: false as const })),
     historicalBars: protectedProcedure.input(z.object({
       symbol: z.string().min(1).max(40),

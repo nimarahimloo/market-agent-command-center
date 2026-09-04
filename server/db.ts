@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, agentOutputs, agentRunEvents, agentRuns, auditEvents, historicalDataRuns, historicalDatasets, intelligenceItems, integrations, instruments, opportunityHistory, opportunityRecords, paperAlerts, riskControls, signals, simulations, users } from "../drizzle/schema";
+import { InsertUser, agentOutputs, agentRunEvents, agentRuns, auditEvents, historicalDataRuns, historicalDatasets, intelligenceItems, integrations, instruments, opportunityHistory, opportunityRecords, paperAlerts, riskControls, signals, simulations, users, walletConnections } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { ownerScoped } from "../shared/ownership";
 import { paperAlertAuditPayload, shouldPersistPaperAlert } from "../shared/radarTools";
@@ -203,6 +203,46 @@ export async function getIntegrationsByOwner(ownerId: number) {
   if (!db) return [];
   const rows = await db.select().from(integrations).where(eq(integrations.ownerId, ownerId));
   return ownerScoped(rows, ownerId);
+}
+
+export async function getWalletConnectionByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(walletConnections).where(eq(walletConnections.ownerId, ownerId)).limit(1);
+  return ownerScoped(rows, ownerId)[0];
+}
+
+export async function upsertWalletConnection(input: { ownerId: number; network: "ethereum" | "base" | "arbitrum" | "polygon" | "solana"; publicAddress: string; isActive?: boolean }) {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db.insert(walletConnections).values({ ...input, isActive: input.isActive ?? true }).onDuplicateKeyUpdate({ set: { network: input.network, publicAddress: input.publicAddress, isActive: input.isActive ?? true, lastReadAt: null } });
+  return getWalletConnectionByOwner(input.ownerId);
+}
+
+export async function markWalletReadAt(ownerId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(walletConnections).set({ lastReadAt: new Date() }).where(eq(walletConnections.ownerId, ownerId));
+}
+
+export async function getWalletConnectionByTaskUid(taskUid: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(walletConnections).where(eq(walletConnections.monitorTaskUid, taskUid)).limit(1);
+  return rows[0];
+}
+
+export async function updateWalletMonitor(ownerId: number, input: { monitorEnabled: boolean; monitorTaskUid?: string | null; monitorStatus: string; lastHeartbeatAt?: Date | null }) {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db.update(walletConnections).set(input).where(eq(walletConnections.ownerId, ownerId));
+  return getWalletConnectionByOwner(ownerId);
+}
+
+export async function markWalletHeartbeat(ownerId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(walletConnections).set({ lastHeartbeatAt: new Date(), lastReadAt: new Date(), monitorStatus: "running" }).where(eq(walletConnections.ownerId, ownerId));
 }
 
 export async function recordHistoricalDataRun(input: {

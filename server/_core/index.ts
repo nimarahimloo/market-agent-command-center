@@ -10,7 +10,9 @@ import { createContext } from "./context";
 import { parseFlatFileChunks, type FlatFileMapping } from "../../shared/flatFile";
 import { createHash } from "node:crypto";
 import { storagePut } from "../storage";
-import { recordHistoricalDataset } from "../db";
+import { appendAuditEventToDb, getWalletConnectionByTaskUid, markWalletHeartbeat, recordHistoricalDataset } from "../db";
+import { fetchReadOnlyWalletPortfolio } from "../wallet";
+import { sdk } from "./sdk";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -57,6 +59,20 @@ async function startServer() {
       await recordHistoricalDataset({ ownerId: ctx.user.id, name, format, source, storageKey: stored.key, sha256, byteSize: content.length, rowCount: parsed.bars.length, symbol, timezone: "UTC", firstTimestamp: parsed.firstTimestamp ? new Date(parsed.firstTimestamp) : null, lastTimestamp: parsed.lastTimestamp ? new Date(parsed.lastTimestamp) : null, status: parsed.errors.length ? "rejected" : "validated", warnings: parsed.warnings, errors: parsed.errors });
       return res.json({ ...parsed, storageKey: stored.key, sha256, byteSize: content.length, status: parsed.errors.length ? "rejected" : "validated" });
     } catch (error) { return res.status(400).json({ message: error instanceof Error ? error.message : "Flat File upload failed" }); }
+  });
+  app.post("/api/scheduled/walletMonitor", async (req, res) => {
+    try {
+      const actor = await sdk.authenticateRequest(req);
+      if (!actor.isCron || !actor.taskUid) return res.status(403).json({ message: "Cron session required" });
+      const connection = await getWalletConnectionByTaskUid(actor.taskUid);
+      if (!connection || !connection.monitorEnabled) return res.json({ ok: true, status: "off" });
+      const portfolio = await fetchReadOnlyWalletPortfolio({ network: connection.network, address: connection.publicAddress });
+      await markWalletHeartbeat(connection.ownerId);
+      await appendAuditEventToDb({ ownerId: connection.ownerId, eventType: "wallet_monitor_heartbeat", entityType: "public_wallet", payload: { taskUid: actor.taskUid, network: portfolio.network, address: portfolio.address, provider: portfolio.provider, scope: portfolio.scope, retrievedAt: portfolio.retrievedAt, mode: "read-only-paper-only" } });
+      return res.json({ ok: true, status: "running", network: portfolio.network, retrievedAt: portfolio.retrievedAt, scope: portfolio.scope, warnings: portfolio.warnings });
+    } catch (error) {
+      return res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "Wallet monitor failed" });
+    }
   });
   // tRPC API
   app.use(

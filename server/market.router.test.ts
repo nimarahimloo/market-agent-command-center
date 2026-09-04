@@ -27,6 +27,18 @@ describe("market protected procedures", () => {
     for (const call of calls) await expect(call).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
+  it("requires a saved public wallet before starting the monitor", async () => {
+    const caller = appRouter.createCaller(contextFor(42));
+    await expect(caller.market.walletMonitor({ enabled: true })).rejects.toThrow("Save a public wallet address before enabling the monitor");
+  });
+
+  it("blocks unauthenticated wallet reads and monitor control", async () => {
+    const caller = appRouter.createCaller({ ...contextFor(42), user: null });
+    await expect(caller.market.walletConnection()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.market.walletMonitor({ enabled: false })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.market.walletPortfolio({ network: "ethereum", address: "0x0000000000000000000000000000000000000001" })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
   it("keeps records isolated by owner", () => {
     const rows = [{ ownerId: 1, id: "a" }, { ownerId: 2, id: "b" }];
     expect(ownerScoped(rows, 1)).toEqual([{ ownerId: 1, id: "a" }]);

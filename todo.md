@@ -202,3 +202,19 @@
 - [x] Add tests for event-time price reactions, CPI/GDP regime classification, distribution data, and operational-mode safety gates.
 - [x] Remove hardcoded quote/confidence presentation from overview and show verified provider-backed values or unavailable states.
 - [x] Align static workspace role catalog with the six-agent architecture and show which outputs are persisted versus awaiting a run.
+
+- [x] Add owner-scoped read-only wallet address configuration with explicit network validation
+- [x] Fetch real wallet portfolio balances from a server-side provider without storing private keys or seed phrases
+- [x] Replace portfolio demo values with real provider states, freshness, provenance, and empty/error states
+- [x] Add wallet security copy, audit linkage, and manual refresh controls; address remains public by design
+- [x] Add tests for wallet address validation and no-custody policy; owner isolation and provider failure-path tests remain to be expanded
+- [x] Document that autonomous live trading is not enabled; keep paper-only/live-gated controls and emergency kill switch
+- [x] Add explicit live-execution prerequisites and human-approval gate instead of unattended brokerage/exchange order routing
+
+- [x] Add Always-on monitor toggle with persisted owner-scoped runtime state
+- [x] Add persistent worker lifecycle/status/last-heartbeat UI for read-only data and paper automation
+- [x] Keep live order routing, withdrawals, transfers, and custody unavailable behind policy gates
+- [ ] Expand tests for idempotent start/stop and heartbeat staleness; authorization and no-custody safety invariants are covered
+
+- [x] Continue implementation of read-only wallet and always-on monitor after user confirmed to proceed
+- [x] Preserve explicit no-custody, no-withdrawal, no-unattended-live-order invariants throughout automation work
