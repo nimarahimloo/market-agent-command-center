@@ -84,6 +84,29 @@ describe("early-warning intelligence", () => {
     vi.unstubAllGlobals();
   });
 
+  it("uses Google News RSS when GDELT is completely unavailable", async () => {
+    clearEarlyWarningCacheForTests();
+    const fetchMock = vi.fn(async (input: URL) => {
+      if (fetchMock.mock.calls.length <= 2)
+        return new Response("upstream down", { status: 503 });
+      expect(input.toString()).toContain("news.google.com/rss/search");
+      return new Response(
+        `<?xml version="1.0"?><rss><channel><item><title><![CDATA[Reuters: Oil and gold markets react to central bank rates]]></title><link>https://news.example.com/market-event</link><pubDate>Tue, 04 Oct 2026 12:00:00 GMT</pubDate><source url="https://reuters.com">Reuters</source></item></channel></rss>`,
+        { status: 200, headers: { "content-type": "application/rss+xml" } }
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await fetchEarlyWarnings("secondary provider test");
+    expect(result[0]).toMatchObject({
+      source: "Reuters",
+      sourceTier: "financial-media",
+      title: expect.stringContaining("Oil and gold"),
+      markets: expect.arrayContaining(["Oil", "Gold", "Rates"]),
+    });
+    expect(result[0]?.id).toMatch(/^google-news-/);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    vi.unstubAllGlobals();
+  });
   it("serves a stale cached feed after transient GDELT failure", async () => {
     vi.useFakeTimers();
     clearEarlyWarningCacheForTests();
@@ -109,10 +132,10 @@ describe("early-warning intelligence", () => {
     vi.setSystemTime(Date.now() + 61_000);
     fetchMock.mockRejectedValue(new Error("network down"));
     const stalePromise = fetchEarlyWarnings("stale fallback test");
-    await vi.advanceTimersByTimeAsync(200);
+    await vi.advanceTimersByTimeAsync(400);
     const stale = await stalePromise;
     expect(stale[0]).toMatchObject({ id: first[0]?.id, freshness: "stale" });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
