@@ -7,6 +7,7 @@ export type EarlyWarningItem = {
   publishedAt: string;
   retrievedAt: string;
   source: string;
+  provider?: "gdelt" | "google-news" | "stale-cache";
   sourceTier: "discovery" | "financial-media" | "official";
   severity: "low" | "medium" | "high";
   markets: string[];
@@ -226,6 +227,7 @@ function normalizeItems(
         publishedAt: item.publishedAt,
         retrievedAt,
         source: item.source,
+        provider,
         sourceTier: sourceTierFor(item.source),
         severity: severityFor(item.tone, markets),
         markets,
@@ -321,6 +323,7 @@ export async function fetchEarlyWarnings(
       if (cached && now - cached.cachedAt <= STALE_CACHE_MAX_MS)
         return cached.items.map(item => ({
           ...item,
+          provider: "stale-cache" as const,
           freshness: "stale" as const,
         }));
       throw new Error(
