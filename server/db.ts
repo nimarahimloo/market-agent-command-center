@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, agentOutputs, agentRunEvents, agentRuns, auditEvents, historicalDataRuns, historicalDatasets, intelligenceItems, integrations, instruments, opportunityHistory, opportunityRecords, paperAlerts, riskControls, signals, simulations, users, walletConnections } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -102,6 +102,15 @@ export async function getAuditEventsByOwner(ownerId: number) {
   const db = await getDb();
   if (!db) return [];
   const rows = await db.select().from(auditEvents).where(eq(auditEvents.ownerId, ownerId));
+  return ownerScoped(rows, ownerId);
+}
+
+export async function getRecentWatchdogEventsByOwner(ownerId: number, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(auditEvents)
+    .where(and(eq(auditEvents.ownerId, ownerId), eq(auditEvents.entityType, "watchdog")))
+    .orderBy(desc(auditEvents.createdAt)).limit(Math.max(1, Math.min(limit, 100)));
   return ownerScoped(rows, ownerId);
 }
 
@@ -210,6 +219,12 @@ export async function getWalletConnectionByOwner(ownerId: number) {
   if (!db) return undefined;
   const rows = await db.select().from(walletConnections).where(eq(walletConnections.ownerId, ownerId)).limit(1);
   return ownerScoped(rows, ownerId)[0];
+}
+
+export async function getEnabledWalletConnections() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(walletConnections).where(eq(walletConnections.monitorEnabled, true));
 }
 
 export async function upsertWalletConnection(input: { ownerId: number; network: "ethereum" | "base" | "arbitrum" | "polygon" | "solana"; publicAddress: string; isActive?: boolean }) {

@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { appendAuditEventToDb, createAgentRun, createAgentRunEvent, getAgentOutputsByOwner, getAgentRunEventsByOwner, getAgentRunsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getHistoricalDatasetsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getOpportunityHistoryByOwner, getOpportunityRecordsByOwner, getPaperAlertsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, getWalletConnectionByOwner, getWalletConnectionByTaskUid, markWalletHeartbeat, markWalletReadAt, recordAgentOutput, recordHistoricalDataRun, recordHistoricalDataset, recordPaperAlert, updateAgentRun, updateOpportunityRecord, updateWalletMonitor, upsertOpportunityRecord, upsertWalletConnection } from "./db";
+import { appendAuditEventToDb, createAgentRun, createAgentRunEvent, getAgentOutputsByOwner, getAgentRunEventsByOwner, getAgentRunsByOwner, getAuditEventsByOwner, getHistoricalDataRunsByOwner, getHistoricalDatasetsByOwner, getIntegrationsByOwner, getIntelligenceByOwner, getInstrumentsByOwner, getOpportunityHistoryByOwner, getOpportunityRecordsByOwner, getRecentWatchdogEventsByOwner, getPaperAlertsByOwner, getRiskControlsByOwner, getSignalsByOwner, getSimulationsByOwner, getWalletConnectionByOwner, getWalletConnectionByTaskUid, markWalletHeartbeat, markWalletReadAt, recordAgentOutput, recordHistoricalDataRun, recordHistoricalDataset, recordPaperAlert, updateAgentRun, updateOpportunityRecord, updateWalletMonitor, upsertOpportunityRecord, upsertWalletConnection } from "./db";
 import { fetchMassiveHistorical } from "./massiveData";
 import { runAgentArmy, runAgentArmyBatch } from "./agentOrchestrator";
 import { parseFlatFileChunks, type FlatFileMapping } from "../shared/flatFile";
@@ -52,6 +52,7 @@ export const appRouter = router({
   market: router({
     watchlist: protectedProcedure.query(({ ctx }) => getInstrumentsByOwner(ctx.user.id)),
     audit: protectedProcedure.query(({ ctx }) => getAuditEventsByOwner(ctx.user.id)),
+    watchdog: protectedProcedure.query(({ ctx }) => getRecentWatchdogEventsByOwner(ctx.user.id)),
     signals: protectedProcedure.query(({ ctx }) => getSignalsByOwner(ctx.user.id)),
     intelligence: protectedProcedure.query(({ ctx }) => getIntelligenceByOwner(ctx.user.id)),
     earlyWarnings: protectedProcedure.input(z.object({ query: z.string().min(3).max(240).optional() }).optional()).query(({ input }) => fetchEarlyWarnings(input?.query)),

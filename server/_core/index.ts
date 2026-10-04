@@ -11,6 +11,7 @@ import { parseFlatFileChunks, type FlatFileMapping } from "../../shared/flatFile
 import { createHash } from "node:crypto";
 import { storagePut } from "../storage";
 import { appendAuditEventToDb, getWalletConnectionByTaskUid, markWalletHeartbeat, recordHistoricalDataset } from "../db";
+import { runWatchdog } from "../watchdog";
 import { fetchReadOnlyWalletPortfolio } from "../wallet";
 import { sdk } from "./sdk";
 import { serveStatic, setupVite } from "./vite";
@@ -59,6 +60,17 @@ async function startServer() {
       await recordHistoricalDataset({ ownerId: ctx.user.id, name, format, source, storageKey: stored.key, sha256, byteSize: content.length, rowCount: parsed.bars.length, symbol, timezone: "UTC", firstTimestamp: parsed.firstTimestamp ? new Date(parsed.firstTimestamp) : null, lastTimestamp: parsed.lastTimestamp ? new Date(parsed.lastTimestamp) : null, status: parsed.errors.length ? "rejected" : "validated", warnings: parsed.warnings, errors: parsed.errors });
       return res.json({ ...parsed, storageKey: stored.key, sha256, byteSize: content.length, status: parsed.errors.length ? "rejected" : "validated" });
     } catch (error) { return res.status(400).json({ message: error instanceof Error ? error.message : "Flat File upload failed" }); }
+  });
+  app.post("/api/scheduled/watchdog", async (req, res) => {
+    try {
+      const actor = await sdk.authenticateRequest(req);
+      if (!actor.isCron || !actor.taskUid) return res.status(403).json({ message: "Cron session required" });
+      const result = await runWatchdog();
+      if (!result.ok) return res.status(500).json(result);
+      return res.json({ ...result, taskUid: actor.taskUid });
+    } catch (error) {
+      return res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "Watchdog failed" });
+    }
   });
   app.post("/api/scheduled/walletMonitor", async (req, res) => {
     try {
