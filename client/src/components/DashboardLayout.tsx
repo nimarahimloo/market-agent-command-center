@@ -10,6 +10,9 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -27,19 +30,27 @@ import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Overview", path: "/" },
-  { icon: BriefcaseBusiness, label: "Watchlist", path: "/watchlist" },
-  { icon: Radar, label: "Early-warning radar", path: "/radar" },
-  { icon: Sparkles, label: "Agent workspace", path: "/agents" },
-  { icon: BookOpenCheck, label: "Signal review", path: "/signals" },
-  { icon: BarChart3, label: "Strategy sandbox", path: "/sandbox" },
-  { icon: ShieldCheck, label: "Risk controls", path: "/risk" },
-  { icon: Activity, label: "Audit log", path: "/audit" },
-  { icon: SlidersHorizontal, label: "Integrations", path: "/settings" },
-  { icon: Coins, label: "Verified opportunities", path: "/opportunities" },
-  { icon: WalletCards, label: "Wallet safety", path: "/wallet" },
+const menuGroups = [
+  { label: "Monitor", items: [
+    { icon: LayoutDashboard, label: "Overview", path: "/" },
+    { icon: BriefcaseBusiness, label: "Watchlist", path: "/watchlist" },
+    { icon: Radar, label: "Early-warning radar", path: "/radar" },
+  ] },
+  { label: "Research", items: [
+    { icon: Sparkles, label: "Agent workspace", path: "/agents" },
+    { icon: BookOpenCheck, label: "Signal review", path: "/signals" },
+    { icon: BarChart3, label: "Strategy sandbox", path: "/sandbox" },
+  ] },
+  { label: "Controls", items: [
+    { icon: ShieldCheck, label: "Risk controls", path: "/risk" },
+    { icon: Activity, label: "Audit log", path: "/audit" },
+    { icon: SlidersHorizontal, label: "Integrations", path: "/settings" },
+    { icon: Coins, label: "Verified opportunities", path: "/opportunities" },
+    { icon: WalletCards, label: "Wallet safety", path: "/wallet" },
+  ] },
 ];
+const menuItems = menuGroups.flatMap(group => group.items);
+const mobileMenuItems = menuGroups[0].items;
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;
@@ -115,7 +126,7 @@ function DashboardLayoutContent({
 }: DashboardLayoutContentProps) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
-  const { state, toggleSidebar } = useSidebar();
+  const { state, toggleSidebar, setOpenMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -186,26 +197,31 @@ function DashboardLayoutContent({
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
-                const isActive = location === item.path;
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => setLocation(item.path)}
-                      tooltip={item.label}
-                      className={`h-10 transition-all font-normal`}
-                    >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                      />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
+            {menuGroups.map(group => (
+              <SidebarGroup key={group.label} className="py-1">
+                <SidebarGroupLabel className="px-3 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">{group.label}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu className="px-2">
+                    {group.items.map(item => {
+                      const isActive = location === item.path;
+                      return (
+                        <SidebarMenuItem key={item.path}>
+                          <SidebarMenuButton
+                            isActive={isActive}
+                            onClick={() => { setLocation(item.path); setOpenMobile(false); }}
+                            tooltip={item.label}
+                            className="h-10 font-normal transition-all"
+                          >
+                            <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                            <span>{item.label}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
           </SidebarContent>
 
           <SidebarFooter className="p-3">
@@ -251,20 +267,29 @@ function DashboardLayoutContent({
 
       <SidebarInset>
         {isMobile && (
-          <div className="flex border-b h-14 items-center justify-between bg-background/95 px-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col gap-1">
-                  <span className="tracking-tight text-foreground">
-                    {activeMenuItem?.label ?? "Menu"}
-                  </span>
+          <>
+            <div className="mobile-shell-header">
+              <div className="flex items-center gap-2 min-w-0">
+                <SidebarTrigger className="h-10 w-10 rounded-xl bg-background" />
+                <div className="min-w-0">
+                  <span className="block truncate text-sm font-semibold tracking-tight text-foreground">{activeMenuItem?.label ?? "Command center"}</span>
+                  <span className="block text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Research cockpit · paper only</span>
                 </div>
               </div>
+              <span className="mobile-health-dot" title="Read-only safety gate active" />
             </div>
-          </div>
+            <nav className="mobile-bottom-nav" aria-label="Primary navigation">
+              {mobileMenuItems.map(item => {
+                const isActive = location === item.path;
+                return <button key={item.path} className={isActive ? "active" : ""} onClick={() => setLocation(item.path)} aria-label={item.label}>
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.label === "Early-warning radar" ? "Radar" : item.label}</span>
+                </button>;
+              })}
+            </nav>
+          </>
         )}
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4 pb-24 md:pb-4">{children}</main>
       </SidebarInset>
     </>
   );
