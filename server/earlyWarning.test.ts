@@ -107,6 +107,28 @@ describe("early-warning intelligence", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     vi.unstubAllGlobals();
   });
+  it("uses BBC Business RSS when both primary RSS providers are unavailable", async () => {
+    clearEarlyWarningCacheForTests();
+    const fetchMock = vi.fn(async (input: URL) => {
+      if (fetchMock.mock.calls.length <= 4) return new Response("upstream down", { status: 503 });
+      expect(input.toString()).toContain("feeds.bbci.co.uk/news/business/rss.xml");
+      return new Response(
+        `<?xml version="1.0"?><rss><channel><item><title><![CDATA[Markets react to oil and central bank decision]]></title><link>https://www.bbc.co.uk/news/business-123</link><pubDate>Tue, 08 Oct 2026 00:00:00 GMT</pubDate><source url="https://www.bbc.co.uk/news/business">BBC Business</source></item></channel></rss>`,
+        { status: 200, headers: { "content-type": "application/rss+xml" } }
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await fetchEarlyWarnings("bbc tertiary provider test");
+    expect(result[0]).toMatchObject({
+      provider: "bbc-news",
+      source: "BBC Business",
+      sourceTier: "financial-media",
+      markets: expect.arrayContaining(["Oil", "Rates"]),
+    });
+    expect(result[0]?.id).toMatch(/^bbc-news-/);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    vi.unstubAllGlobals();
+  });
   it("serves a stale cached feed after transient GDELT failure", async () => {
     vi.useFakeTimers();
     clearEarlyWarningCacheForTests();
@@ -132,10 +154,10 @@ describe("early-warning intelligence", () => {
     vi.setSystemTime(Date.now() + 61_000);
     fetchMock.mockRejectedValue(new Error("network down"));
     const stalePromise = fetchEarlyWarnings("stale fallback test");
-    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(700);
     const stale = await stalePromise;
     expect(stale[0]).toMatchObject({ id: first[0]?.id, freshness: "stale" });
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(7);
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });

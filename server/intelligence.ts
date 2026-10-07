@@ -7,7 +7,7 @@ export type EarlyWarningItem = {
   publishedAt: string;
   retrievedAt: string;
   source: string;
-  provider?: "gdelt" | "google-news" | "stale-cache";
+  provider?: "gdelt" | "google-news" | "bbc-news" | "stale-cache";
   sourceTier: "discovery" | "financial-media" | "official";
   severity: "low" | "medium" | "high";
   markets: string[];
@@ -53,6 +53,7 @@ export function shouldAlert(
 
 const GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc";
 const GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search";
+const BBC_BUSINESS_RSS_URL = "https://feeds.bbci.co.uk/news/business/rss.xml";
 const PROVIDER_TIMEOUT_MS = 8_000;
 const CACHE_TTL_MS = 60_000;
 const STALE_CACHE_MAX_MS = 15 * 60_000;
@@ -155,7 +156,7 @@ function sourceTierFor(domain: string): EarlyWarningItem["sourceTier"] {
     )
   )
     return "official";
-  if (/cnbc|reuters|bloomberg|ft\.com|wsj\.com/.test(domain.toLowerCase()))
+  if (/cnbc|reuters|bloomberg|ft\.com|wsj\.com|bbc(\.co\.uk|\.com)?/.test(domain.toLowerCase()))
     return "financial-media";
   return "discovery";
 }
@@ -196,7 +197,7 @@ function normalizeItems(
     tone: number;
     index: number;
   }>,
-  provider: "gdelt" | "google-news",
+  provider: "gdelt" | "google-news" | "bbc-news",
   retrievedAt: string
 ) {
   const seenUrls = new Set<string>();
@@ -208,7 +209,7 @@ function normalizeItems(
     })
     .map(item => {
       const markets = classifyMarkets(item.title);
-      const confidenceBase = provider === "gdelt" ? 48 : 36;
+      const confidenceBase = provider === "gdelt" ? 48 : provider === "bbc-news" ? 44 : 36;
       const confidence = Math.min(
         92,
         Math.max(
@@ -320,15 +321,40 @@ export async function fetchEarlyWarnings(
       });
       return corroborated;
     } catch (secondaryError) {
-      if (cached && now - cached.cachedAt <= STALE_CACHE_MAX_MS)
-        return cached.items.map(item => ({
-          ...item,
-          provider: "stale-cache" as const,
-          freshness: "stale" as const,
-        }));
-      throw new Error(
-        `News discovery unavailable: GDELT failed (${gdeltError instanceof Error ? gdeltError.message : "unknown error"}); secondary RSS failed (${secondaryError instanceof Error ? secondaryError.message : "unknown error"})`
-      );
+      try {
+        const response = await fetchWithRetry(
+          new URL(BBC_BUSINESS_RSS_URL),
+          "application/rss+xml, application/xml, text/xml",
+          "BBC Business RSS fallback"
+        );
+        const items = normalizeItems(
+          parseGoogleNewsRss(await response.text(), retrievedAt).map(item => ({
+            ...item,
+            tone: 0,
+            source: item.source || "BBC Business",
+          })),
+          "bbc-news",
+          retrievedAt
+        );
+        if (!items.length) throw new Error("BBC Business RSS returned no articles");
+        const corroborated = applyCorroboration(items);
+        cache.set(key, {
+          expiresAt: now + CACHE_TTL_MS,
+          cachedAt: now,
+          items: corroborated,
+        });
+        return corroborated;
+      } catch (bbcError) {
+        if (cached && now - cached.cachedAt <= STALE_CACHE_MAX_MS)
+          return cached.items.map(item => ({
+            ...item,
+            provider: "stale-cache" as const,
+            freshness: "stale" as const,
+          }));
+        throw new Error(
+          `News discovery unavailable: GDELT failed (${gdeltError instanceof Error ? gdeltError.message : "unknown error"}); Google News failed (${secondaryError instanceof Error ? secondaryError.message : "unknown error"}); BBC Business failed (${bbcError instanceof Error ? bbcError.message : "unknown error"})`
+        );
+      }
     }
   }
 }
