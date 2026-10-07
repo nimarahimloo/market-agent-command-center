@@ -169,7 +169,8 @@ export function parseCalendarHtml(
     };
     events.push({
       title,
-      scheduledAt: dateMatch ? dateMatch[0] : now.toISOString(),
+      // Fallback HTML pages often omit an event timestamp. Never label the fetch time as the release time.
+      scheduledAt: dateMatch ? dateMatch[0] : "not published by fallback calendar",
       source,
       url: href,
       importance: "scheduled",
@@ -277,6 +278,12 @@ export function parseTradingEconomicsCalendar(
   });
 }
 
+function providerWarning(label: string, error: unknown) {
+  const message = error instanceof Error ? error.message : "unknown error";
+  if (message.includes("HTTP 410")) return `${label} endpoint is retired; using FRED/New York Fed fallback.`;
+  return `${label} unavailable: ${message}`;
+}
+
 async function fetchText(url: string) {
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -331,13 +338,13 @@ export async function buildMacroContext(): Promise<MacroContext> {
   ] = await Promise.all([
     fetchText(FRED_CALENDAR_URL).catch(error => {
       warnings.push(
-        `FRED calendar unavailable: ${error instanceof Error ? error.message : "unknown error"}`
+        providerWarning("FRED calendar", error)
       );
       return "";
     }),
     fetchText(NY_FED_CALENDAR_URL).catch(error => {
       warnings.push(
-        `New York Fed calendar unavailable: ${error instanceof Error ? error.message : "unknown error"}`
+        providerWarning("New York Fed calendar", error)
       );
       return "";
     }),
@@ -345,13 +352,13 @@ export async function buildMacroContext(): Promise<MacroContext> {
       "https://api.tradingeconomics.com/calendar/country/United%20States?c=guest:guest"
     ).catch(error => {
       warnings.push(
-        `TradingEconomics calendar unavailable: ${error instanceof Error ? error.message : "unknown error"}`
+        providerWarning("TradingEconomics calendar", error)
       );
       return "";
     }),
     fetchText(historyCalendarUrl).catch(error => {
       warnings.push(
-        `TradingEconomics history unavailable: ${error instanceof Error ? error.message : "unknown error"}`
+        providerWarning("TradingEconomics history", error)
       );
       return "";
     }),
@@ -528,6 +535,9 @@ export async function buildMacroContext(): Promise<MacroContext> {
     warnings.push(
       "No FRED rate observations were returned; policy-rate conclusions are unavailable."
     );
+  const latestRateDate = rates.map(rate => Date.parse(rate.date)).filter(Number.isFinite).sort((a, b) => b - a)[0];
+  if (latestRateDate && retrievedAt - latestRateDate > 90 * 86_400_000)
+    warnings.push(`FRED policy-rate observations are stale; latest observation is ${new Date(latestRateDate).toISOString().slice(0, 10)}.`);
   if (!cpi.length)
     warnings.push(
       "No FRED CPI observations were returned; inflation regime is unknown."

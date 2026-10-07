@@ -3,6 +3,7 @@ import {
   buildMacroContext,
   clearMacroContextCacheForTests,
   parseTradingEconomicsCalendar,
+  parseCalendarHtml,
 } from "./macroContext";
 import { calculateSurprise } from "../shared/surprise";
 
@@ -75,6 +76,16 @@ describe("macro surprise analysis", () => {
     vi.unstubAllGlobals();
     clearMacroContextCacheForTests();
   });
+  it("does not use retrieval time as a release time when fallback HTML omits a date", () => {
+    const result = parseCalendarHtml(
+      '<a href="/release">SOFR Averages and Index Data</a>',
+      "FRED Release Calendar",
+      "https://fred.stlouisfed.org/releases/calendar",
+      new Date("2026-10-08T00:00:00Z")
+    );
+    expect(result[0]?.scheduledAt).toBe("not published by fallback calendar");
+  });
+
   it("normalizes real calendar rows without inventing missing values", () => {
     const parsed = parseTradingEconomicsCalendar([
       {

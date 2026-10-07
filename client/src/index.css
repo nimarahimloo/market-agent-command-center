@@ -114,3 +114,10 @@
 .watchdog-indicator.failed { color:#ef9b88; border-color:rgba(239,155,136,.35); }
 .watchdog-indicator.failed .status-dot { background:#ef9b88; box-shadow:0 0 0 3px rgba(239,155,136,.12); }
 @media (max-width:760px) { .watchdog-indicator { font-size:.52rem; } }
+
+.macro-context-columns > div { display:flex; flex-direction:column; gap:.55rem; min-width:0; }
+.macro-release { display:flex; flex-direction:column; gap:.22rem; padding:.65rem .7rem; border:1px solid #26394a; border-radius:8px; background:#0d1721; }
+.macro-release a { color:#b9dcd5; font-size:.7rem; line-height:1.35; text-decoration:none; }
+.macro-release a:hover { color:#6ce2c2; }
+.macro-release-meta { color:#8195a2; font-size:.62rem; line-height:1.45; }
+.macro-context-panel > .disclaimer { display:block; line-height:1.5; padding:.25rem 0; }
