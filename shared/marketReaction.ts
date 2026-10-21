@@ -23,7 +23,7 @@ export function calculatePostReleaseReaction(bars: HistoricalBar[], releaseTimes
 
 export function calibrateSurpriseSeverity(zScore: number | null, points: Array<{ horizon: ReactionHorizon; returnPct: number | null }>) {
   const observed = points.find(point => point.horizon === "30m") ?? points.find(point => point.horizon === "2h");
-  if (zScore === null || !observed?.returnPct) return { status: "unavailable" as const, reason: "No usable standardized surprise or post-release price reaction." };
+  if (zScore === null || observed?.returnPct == null || !Number.isFinite(observed.returnPct)) return { status: "unavailable" as const, reason: "No usable standardized surprise or post-release price reaction." };
   const aligned = Math.sign(zScore) === Math.sign(observed.returnPct);
   return { status: aligned ? "aligned" as const : "contradicted" as const, reactionHorizon: observed.horizon, reactionPct: observed.returnPct, reason: aligned ? "Price direction aligned with standardized surprise." : "Price direction contradicted standardized surprise." };
 }

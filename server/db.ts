@@ -314,8 +314,8 @@ export async function appendAuditEventToDb(input: {
     entityId: input.entityId,
     payload: input.payload,
   });
-  const rows = await db.select().from(auditEvents).where(eq(auditEvents.ownerId, input.ownerId));
-  return rows[rows.length - 1];
+  const rows = await db.select().from(auditEvents).where(eq(auditEvents.ownerId, input.ownerId)).orderBy(desc(auditEvents.id)).limit(1);
+  return rows[0];
 }
 
 export async function getPaperAlertsByOwner(ownerId: number) {

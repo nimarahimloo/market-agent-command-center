@@ -43,8 +43,9 @@ export async function runWatchdog(now = Date.now()) {
     const checkName = `wallet:${connection.network}`;
     try {
       const result = await withBoundedRetry(() => fetchReadOnlyWalletPortfolio({ network: connection.network, address: connection.publicAddress }));
+      const previousHeartbeatAt = connection.lastHeartbeatAt;
       await markWalletHeartbeat(connection.ownerId);
-      const heartbeat = evaluateHeartbeat(new Date(), now);
+      const heartbeat = evaluateHeartbeat(previousHeartbeatAt ?? null, now);
       checks.push({ ...heartbeat, name: checkName, message: `Wallet refresh succeeded via ${result.value.provider}.`, attempts: result.attempts });
       await appendAuditEventToDb({ ownerId: connection.ownerId, eventType: "watchdog_wallet_refresh", entityType: "watchdog", payload: { check: checkName, status: "healthy", attempts: result.attempts, provider: result.value.provider, retrievedAt: result.value.retrievedAt, taskUid: connection.monitorTaskUid } });
     } catch (error) {
