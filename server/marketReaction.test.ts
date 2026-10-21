@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculatePostReleaseReaction, summarizeReactions } from "../shared/marketReaction";
+import { calculatePostReleaseReaction, calibrateSurpriseSeverity, summarizeReactions } from "../shared/marketReaction";
 
 describe("post-release market reaction", () => {
   it("aligns real bars to post-release horizons", () => {
@@ -18,5 +18,10 @@ describe("post-release market reaction", () => {
   });
   it("summarizes observed reactions without inventing missing points", () => {
     expect(summarizeReactions([[{ returnPct: 1 }, { returnPct: -1 }, { returnPct: null }]])).toMatchObject({ sampleCount: 2, meanReturnPct: 0, directionHitRate: 0.5 });
+  });
+  it("treats a legitimate 0% reaction as usable instead of unavailable", () => {
+    expect(calibrateSurpriseSeverity(1.5, [{ horizon: "30m", returnPct: 0 }])).toMatchObject({ status: "contradicted", reactionPct: 0 });
+    expect(calibrateSurpriseSeverity(1.5, [{ horizon: "30m", returnPct: null }])).toMatchObject({ status: "unavailable" });
+    expect(calibrateSurpriseSeverity(null, [{ horizon: "30m", returnPct: 0.4 }])).toMatchObject({ status: "unavailable" });
   });
 });
